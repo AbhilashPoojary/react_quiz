@@ -10,6 +10,8 @@ export default function QuizComponent({
   nextQuestion,
   enableTimer,
   quizIndex,
+  timeConsumed,
+  setTimeConsumed,
 }) {
   const [bg, setBg] = useState([
     { bgc: "bg-gray-200", fgc: "text-inherit" },
@@ -17,11 +19,12 @@ export default function QuizComponent({
     { bgc: "bg-gray-200", fgc: "text-inherit" },
     { bgc: "bg-gray-200", fgc: "text-inherit" },
   ]);
-  const [timeConsumed, setTimeConsumed] = useState(0);
+
   const [counter, setCounter] = useState(20);
   const [totalCounter, setTotalCounter] = useState(0);
-
+  console.log(quizData.correct_answer);
   const checkAnswer = (item, index) => {
+    debugger;
     let updatedBg = [...bg];
     if (item === quizData.correct_answer) {
       setScore((score += 10));
@@ -78,7 +81,7 @@ export default function QuizComponent({
 
   return (
     <div>
-      <div className="flex justify-between border-b py-5">
+      <div className="flex flex-col items-center border-b py-5 md:flex-row md:justify-between lg:flex-row lg:justify-between">
         <span className="font-semibold text-lg">{quizData?.category}</span>
         <h1 className="font-semibold text-lg">{name}</h1>
         <span className="font-semibold text-lg">Score: {score}</span>

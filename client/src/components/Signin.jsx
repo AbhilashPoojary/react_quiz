@@ -1,55 +1,83 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  loginCall,
+  selectUserInfo,
+  loading,
+  message,
+  isReady,
+  isSuccess,
+} from "../slice/authSlice";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import InputPassword from "./InputPassword";
+import InputText from "./InputText";
 
-export default function Signin({ switchToSignUp, authenticate }) {
+export default function Signin({ switchToSignUp, authenticate, setAlign }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const user = useSelector(selectUserInfo);
+  const state = useSelector(loading);
+  const changeNav = useSelector(isReady);
+  const errorState = useSelector(isSuccess);
+  const error = useSelector(message);
+  const dispatch = useDispatch();
+  const handleSubmit = function (e) {
+    e.preventDefault();
+    const user = {
+      email,
+      password,
+    };
+    dispatch(loginCall(user));
+  };
+  const successState = useSelector(isSuccess);
+  useEffect(() => {
+    if (successState) {
+      navigate("/info");
+    }
+  }, [successState]);
+  useEffect(() => {
+    if (error && !state) {
+      toast.error(error);
+    }
+  }, [error, state]);
+  useEffect(() => {
+    setAlign(false);
+  }, []);
   return (
     <div className="form-container">
       <h2 className="my-4 text-center font-semibold text-xl">
         Sign in to the Quiz
       </h2>
-      <form className="w-1/2 m-auto border p-10 rounded bg-gray-50">
-        <div className="sm:col-span-2 mb-4">
-          <label
-            htmlFor="email"
-            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-          >
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            className="border border-gray-300 text-sm rounded block w-full p-2.5 outline-none"
-            placeholder="Type your email"
-          />
-        </div>
-        <div className="sm:col-span-2 mb-4">
-          <label
-            htmlFor="password"
-            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-          >
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            id="password"
-            className="outline-none border border-gray-300 text-gray-900 text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-            placeholder="Type your email"
-          />
+      <form
+        className="w-1/2 m-auto border p-10 rounded bg-gray-50"
+        onSubmit={handleSubmit}
+      >
+        <InputText
+          name="email"
+          label="Email"
+          value={email}
+          setValue={setEmail}
+          type="text"
+        />
+        <InputPassword
+          name="password"
+          label="Password"
+          value={password}
+          setValue={setPassword}
+        />
+        <div className="sm:col-span-2 mt-2 flex justify-between items-end">
+          <button className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded px-3 py-2 text-white">
+            Submit
+          </button>
+          <Link className="underline text-blue-500" onClick={switchToSignUp}>
+            Register here
+          </Link>
         </div>
       </form>
-      <div className="flex justify-between w-1/2 m-auto items-center mt-4 flex-row-reverse">
-        <button
-          onClick={authenticate}
-          className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded px-3 py-2 text-white"
-        >
-          Submit
-        </button>
-        <Link className="underline text-blue-500" onClick={switchToSignUp}>
-          Register here
-        </Link>
-      </div>
+      <ToastContainer />
     </div>
   );
 }

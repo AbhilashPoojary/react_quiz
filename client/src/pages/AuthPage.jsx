@@ -3,7 +3,7 @@ import Signin from "../components/Signin";
 import Signup from "../components/Signup";
 import { useNavigate } from "react-router-dom";
 
-export default function AuthPage() {
+export default function AuthPage({ setAlign }) {
   const navigate = useNavigate();
   const [isSignIn, setIsSignIn] = useState(true);
 
@@ -26,9 +26,10 @@ export default function AuthPage() {
             <Signin
               switchToSignUp={switchToSignUp}
               authenticate={authenticate}
+              setAlign={setAlign}
             />
           ) : (
-            <Signup switchToSignIn={switchToSignIn} />
+            <Signup switchToSignIn={switchToSignIn} setAlign={setAlign} />
           )}
         </div>
         <div

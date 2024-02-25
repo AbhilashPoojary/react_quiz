@@ -16,6 +16,8 @@ export default function QuizPage({
   setQuizIndex,
   enableTimer,
   quizIndex,
+  timeConsumed,
+  setTimeConsumed,
 }) {
   const navigate = useNavigate();
   const quitNow = () => {
@@ -25,7 +27,6 @@ export default function QuizPage({
     setQuizIndex(0);
     navigate("/info");
   };
-  console.log(currentQuestion);
   return (
     <>
       {loading ? (
@@ -40,6 +41,8 @@ export default function QuizPage({
           score={score}
           enableTimer={enableTimer}
           quizIndex={quizIndex}
+          timeConsumed={timeConsumed}
+          setTimeConsumed={setTimeConsumed}
         />
       )}
     </>

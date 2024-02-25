@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-export default function Dropdown({ data }) {
+export default function Dropdown({ data, setState, state }) {
   const [active, setActive] = useState(false);
   const [select, setSelect] = useState("Select");
+  console.log(state);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -24,11 +25,12 @@ export default function Dropdown({ data }) {
 
   const handleItemClick = (item) => {
     setSelect(item.category);
+    setState(item.value);
     setActive(false);
   };
 
   return (
-    <div className="dropdown cursor-pointer border p-2 rounded relative z-20">
+    <div className="dropdown cursor-pointer border p-2 rounded relative">
       <div
         tabIndex="0"
         onMouseDown={handleDropdownToggle}
@@ -42,7 +44,7 @@ export default function Dropdown({ data }) {
         )}
       </div>
       <div
-        className="dropdown-content max-h-60 overflow-auto absolute z-10 w-full left-0 top-10 bg-white border shadow-lg"
+        className="dropdown-content  max-h-60 overflow-auto absolute z-50 w-full left-0 top-10 bg-white border shadow-lg"
         style={{ display: active ? "block" : "none" }}
       >
         {data.map((item) => (

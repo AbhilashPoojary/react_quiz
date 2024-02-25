@@ -8,7 +8,7 @@ export default function QuizOptions({ quizData, checkAnswer, bg }) {
         {quizData?.question ? he.decode(quizData?.question) : "Loading..."}
       </h3>
       <span className="hidden">Please select an option first</span>
-      <div className="grid grid-cols-2 gap-4 my-5 mx-5">
+      <div className="grid  grid-row-1 gap-4 my-5 mx-5 md:grid-cols-2 lg:grid-cols-2">
         {quizData?.answers?.map((item, index) => (
           <button
             key={index}

@@ -1,4 +1,5 @@
 const Categories = [
+  { category: "Select", value: null },
   {
     category: "General Knowledge",
     value: 9,

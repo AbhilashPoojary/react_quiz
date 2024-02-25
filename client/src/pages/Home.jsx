@@ -21,9 +21,17 @@ export default function Home({
 
   const navigate = useNavigate();
   const handleSubmit = (e) => {
+    debugger;
     e.preventDefault();
     if (name === "" || name === null) {
       setError("Please enter the name of person");
+      setTimeout(() => {
+        setError("");
+      }, 1000);
+      return false;
+    }
+    if (category === "" || difficulty === "") {
+      setError("Selecting Category and Difficulty is mandatory");
       setTimeout(() => {
         setError("");
       }, 1000);
@@ -36,9 +44,9 @@ export default function Home({
     setIsOpen(!isOpen);
   };
   return (
-    <div className="flex">
-      <div className="w-1/2">
-        <h1 className="font-medium text-2xl">Quiz Settings</h1>
+    <div className="flex flex-col md:flex-row lg:flex-row">
+      <div className="w-full md:w-1/2 lg:w-1/2">
+        {/* <h1 className="font-medium text-2xl">Quiz Settings</h1> */}
         <QuizDetails
           name={name}
           error={error}
@@ -58,7 +66,7 @@ export default function Home({
           handleTogglePopover={handleTogglePopover}
         />
       </div>
-      <div className="w-1/2 flex items-center justify-center ">
+      <div className="flex items-center justify-center w-full md:w-1/2 lg:w-1/2">
         <img className="rounded custom-quiz-image" src={quizMaze} alt="maze" />
       </div>
     </div>
