@@ -9,6 +9,7 @@ export default function InputCheckbox({
   handleTogglePopover,
   referenceElementRef,
   isOpen,
+  setIsOpen,
   Tooltip,
   message,
 }) {
@@ -36,6 +37,7 @@ export default function InputCheckbox({
         handleTogglePopover={handleTogglePopover}
         referenceElementRef={referenceElementRef}
         isOpen={isOpen}
+        setIsOpen={setIsOpen}
         message={message}
       />
     </div>

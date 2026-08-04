@@ -3,27 +3,31 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   loginCall,
-  selectUserInfo,
   loading,
   message,
-  isReady,
   isSuccess,
+  alreadyLoggedIn,
 } from "../slice/authSlice";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import InputPassword from "./InputPassword";
 import InputText from "./InputText";
+import ErrorNotification from "./ErrorNotification";
+import ConfirmPopup from "./ConfirmPopup";
 
-export default function Signin({ switchToSignUp, authenticate, setAlign }) {
+export default function Signin({ switchToSignUp, setAlign }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [notification, setNotification] = useState({
+    type: "info",
+    message: "",
+  });
+  const [showSessionPopup, setShowSessionPopup] = useState(false);
   const navigate = useNavigate();
-  const user = useSelector(selectUserInfo);
   const state = useSelector(loading);
-  const changeNav = useSelector(isReady);
-  const errorState = useSelector(isSuccess);
   const error = useSelector(message);
+  const successState = useSelector(isSuccess);
+  const conflictState = useSelector(alreadyLoggedIn);
   const dispatch = useDispatch();
+
   const handleSubmit = function (e) {
     e.preventDefault();
     const user = {
@@ -32,22 +36,58 @@ export default function Signin({ switchToSignUp, authenticate, setAlign }) {
     };
     dispatch(loginCall(user));
   };
-  const successState = useSelector(isSuccess);
+
   useEffect(() => {
     if (successState) {
+      setNotification({
+        type: "success",
+        message: "Login successful",
+      });
       navigate("/info");
     }
-  }, [successState]);
+  }, [successState, navigate]);
+
   useEffect(() => {
     if (error && !state) {
-      toast.error(error);
+      if (conflictState) {
+        setNotification({ type: "info", message: "" });
+      } else {
+        setNotification({ type: "error", message: error });
+      }
     }
-  }, [error, state]);
+  }, [error, state, conflictState]);
+
+  useEffect(() => {
+    if (conflictState) {
+      setShowSessionPopup(true);
+    }
+  }, [conflictState]);
+
+  const handleSessionConfirm = () => {
+    setShowSessionPopup(false);
+    dispatch(loginCall({ email, password, forceLogin: true }));
+  };
+
+  const handleSessionCancel = () => {
+    setShowSessionPopup(false);
+    setNotification({ type: "info", message: "" });
+  };
+
   useEffect(() => {
     setAlign(false);
-  }, []);
+  }, [setAlign]);
+
   return (
     <div className="form-container">
+      <ConfirmPopup
+        open={showSessionPopup}
+        title="Single active session"
+        body="You are already logged in on another device. Do you want to logout the previous session and continue?"
+        confirmText="Continue"
+        cancelText="Cancel"
+        onConfirm={handleSessionConfirm}
+        onCancel={handleSessionCancel}
+      />
       <h2 className="my-4 text-center font-semibold text-xl">
         Sign in to the Quiz
       </h2>
@@ -55,6 +95,12 @@ export default function Signin({ switchToSignUp, authenticate, setAlign }) {
         className="w-1/2 m-auto border p-10 rounded bg-gray-50"
         onSubmit={handleSubmit}
       >
+        <ErrorNotification
+          message={notification.message}
+          type={notification.type}
+          duration={5000}
+          onHide={() => setNotification({ type: "info", message: "" })}
+        />
         <InputText
           name="email"
           label="Email"
@@ -77,7 +123,6 @@ export default function Signin({ switchToSignUp, authenticate, setAlign }) {
           </Link>
         </div>
       </form>
-      <ToastContainer />
     </div>
   );
 }

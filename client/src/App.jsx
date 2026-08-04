@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useRef, useState } from "react";
+import apiClient from "./utils/apiClient";
 import { Routes, Route } from "react-router-dom";
 import LogoutUser from "./components/LogoutUser";
 import "./styles.css";
@@ -14,9 +14,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectUserInfo, isReady } from "./slice/authSlice";
 import { LOG_OUT } from "./slice/authSlice";
 import { insertScoreCall } from "./slice/insertScoreSlice";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import Dashboard from "./pages/Dashboard";
+import ErrorNotification from "./components/ErrorNotification";
 
 function App() {
   const [name, setName] = useState("");
@@ -31,22 +30,32 @@ function App() {
   const [align, setAlign] = useState(false);
   const [loggedinUser, setLoggedinUser] = useState("");
   const [timeConsumed, setTimeConsumed] = useState(0);
+  const [sessionNotification, setSessionNotification] = useState({
+    type: "info",
+    message: "",
+  });
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const scoreRef = useRef(score);
   const userInfo = useSelector(selectUserInfo);
   const readystate = useSelector(isReady);
 
   const requestQuestions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `https://opentdb.com/api.php?amount=10&category=${category}&difficulty=${difficulty}&type=multiple`
-      );
-      setQuizData(response.data.results);
+      const response = await apiClient.get("/api/questions", {
+        params: {
+          amount: 10,
+          category,
+          difficulty,
+          type: "multiple",
+        },
+      });
+      setQuizData(response.data);
       setLoading(false);
     } catch (error) {
-      toast.error("Api error please try again later");
       console.error(error);
+      setLoading(false);
     }
   };
   const nextQuestion = () => {
@@ -54,12 +63,13 @@ function App() {
     if (quizIndex + 1 < quizData.length) {
       setQuizIndex(quizIndex + 1);
     } else {
+      const latestScore = scoreRef.current;
       if (enableTimer) {
         const obj = {
           name,
           category,
           difficulty,
-          score,
+          score: latestScore,
           totaltime: timeConsumed,
           profilePicture: storedUser?.user?.profilePicture,
           userId: storedUser?.user?._id,
@@ -74,9 +84,43 @@ function App() {
     }
   };
 
-  const logoutUser = () => {
+  const logoutUser = async () => {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch (error) {
+      console.error(error);
+    }
     dispatch(LOG_OUT());
   };
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  useEffect(() => {
+    const savedSessionMessage = localStorage.getItem("sessionExpiredMessage");
+
+    if (savedSessionMessage) {
+      setSessionNotification({
+        type: "info",
+        message: savedSessionMessage,
+      });
+    }
+
+    const handleSessionExpired = (event) => {
+      const message = event?.detail?.message || savedSessionMessage || "";
+      setSessionNotification({
+        type: "info",
+        message,
+      });
+    };
+
+    window.addEventListener("session-expired", handleSessionExpired);
+
+    return () => {
+      window.removeEventListener("session-expired", handleSessionExpired);
+    };
+  }, []);
+
   useEffect(() => {
     if (quizData.length > 0) {
       let answers = [
@@ -107,14 +151,27 @@ function App() {
         !align ? "h-screen" : "mt-4"
       } flex-col flex  justify-center items-center`}
     >
-      <main className="py-5 px-10 border rounded w-2/3 shadow-xl">
-        <div className="m-auto w-full flex border-b pb-5 justify-between items-center">
-          <img src={logo} alt="logo" />
-          <LogoutUser
-            logoutUser={logoutUser}
-            loggedinUser={loggedinUser}
-            name={name}
-          />
+      <ErrorNotification
+        message={sessionNotification.message}
+        type={sessionNotification.type}
+        duration={2200}
+        onHide={() => {
+          localStorage.removeItem("sessionExpiredMessage");
+          setSessionNotification({ type: "info", message: "" });
+        }}
+      />
+      <main className="p-12 border rounded w-2/3 shadow-xl">
+        <div className="m-auto w-full border-b pb-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="col-start-2 justify-self-center">
+            <img src={logo} alt="logo" className="m-auto" />
+          </div>
+          <div className="col-start-3 justify-self-end">
+            <LogoutUser
+              logoutUser={logoutUser}
+              loggedinUser={loggedinUser}
+              name={name}
+            />
+          </div>
         </div>
         <Routes>
           <Route path="/" element={<AuthPage setAlign={setAlign} />} />
@@ -179,7 +236,6 @@ function App() {
           />
         </Routes>
       </main>
-      <ToastContainer />
     </section>
   );
 }

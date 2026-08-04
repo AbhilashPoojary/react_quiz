@@ -1,14 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StepBack, StepForward, ChevronLast, ChevronFirst } from "lucide-react";
 import Categories from "../data/Categories";
 
-export default function ResultTable({ data, itemsPerPage }) {
+export default function ResultTable({ data, itemsPerPage, dateSort = "newest" }) {
   const [currentPage, setCurrentPage] = useState(1);
 
+  const sortedData = useMemo(() => {
+    const clonedData = [...(data || [])];
+
+    return clonedData.sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const dateB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+
+      if (dateSort === "oldest") {
+        return dateA - dateB;
+      }
+
+      return dateB - dateA;
+    });
+  }, [data, dateSort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
-  console.log(currentPage, indexOfLastItem, indexOfFirstItem, currentItems);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
 
   const paginate = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -26,19 +41,18 @@ export default function ResultTable({ data, itemsPerPage }) {
     }
   };
   const handleStepNext = () => {
-    if (currentPage < data.length / itemsPerPage) {
+    if (currentPage < totalPages) {
       setCurrentPage((prev) => prev + 1);
     }
   };
   const handleEnd = () => {
-    const endPageIndx = Math.ceil(data.length / itemsPerPage);
-    setCurrentPage(endPageIndx);
+    setCurrentPage(totalPages);
   };
   useEffect(() => {
     if (data) {
       setCurrentPage(1);
     }
-  }, [data]);
+  }, [data, dateSort]);
   return (
     <>
       <div className="result-table">
@@ -64,11 +78,11 @@ export default function ResultTable({ data, itemsPerPage }) {
           </thead>
           <tbody>
             {currentItems.length > 0 ? (
-              currentItems?.map((item) => {
+              currentItems?.map((item, index) => {
                 return (
                   <tr
                     className="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
-                    key={item?._id}
+                    key={item?._id || `${item?.name}-${item?.score}-${index}`}
                   >
                     <th
                       scope="row"
@@ -96,7 +110,7 @@ export default function ResultTable({ data, itemsPerPage }) {
         </table>
       </div>
       <div className="pagination flex justify-end gap-2 mt-2 items-center">
-        {data.length > itemsPerPage && (
+        {sortedData.length > itemsPerPage && (
           <ChevronFirst
             className={`${
               currentPage === 1
@@ -106,7 +120,7 @@ export default function ResultTable({ data, itemsPerPage }) {
             onClick={() => setCurrentPage(1)}
           />
         )}
-        {data.length > itemsPerPage && (
+        {sortedData.length > itemsPerPage && (
           <StepBack
             className={`${
               currentPage === 1
@@ -116,50 +130,49 @@ export default function ResultTable({ data, itemsPerPage }) {
             onClick={handleStepBack}
           />
         )}
-        {data.length > itemsPerPage &&
+        {sortedData.length > itemsPerPage &&
           Array.from({
-            length: Math.min(3, Math.ceil(data.length / itemsPerPage)),
+            length: Math.min(3, totalPages),
           }).map((_, index) => {
-            const totalPageCount = Math.ceil(data.length / itemsPerPage);
             let startPageIndex = currentPage - 1 - Math.floor(3 / 2);
             startPageIndex = Math.max(
               0,
-              Math.min(startPageIndex, totalPageCount - 3)
+              Math.min(startPageIndex, totalPages - 3)
             );
-            const endPageIndex = Math.min(
-              startPageIndex + 2,
-              totalPageCount - 1
-            );
+            const pageNumber = startPageIndex + index + 1;
+
+            if (pageNumber > totalPages) {
+              return null;
+            }
+
             return (
-              <>
-                <button
-                  key={index}
-                  className={
-                    currentPage === startPageIndex + index + 1
-                      ? "text-gray-400 bg-blue-200 px-2 border w-[25px]"
-                      : "px-2 border"
-                  }
-                  onClick={() => paginate(startPageIndex + index + 1)}
-                >
-                  {startPageIndex + index + 1}
-                </button>
-              </>
+              <button
+                key={`page-${pageNumber}`}
+                className={
+                  currentPage === pageNumber
+                    ? "text-gray-400 bg-blue-200 px-2 border w-[25px]"
+                    : "px-2 border"
+                }
+                onClick={() => paginate(pageNumber)}
+              >
+                {pageNumber}
+              </button>
             );
           })}
-        {data.length > itemsPerPage && (
+        {sortedData.length > itemsPerPage && (
           <StepForward
             className={`${
-              currentPage === Math.ceil(data.length / itemsPerPage)
+              currentPage === totalPages
                 ? "text-[#e5e7eb] cursor-default"
                 : "text-[#c3c8ce] cursor-pointer"
             } border p-[2px]`}
             onClick={handleStepNext}
           />
         )}
-        {data.length > itemsPerPage && (
+        {sortedData.length > itemsPerPage && (
           <ChevronLast
             className={`${
-              currentPage === Math.ceil(data.length / itemsPerPage)
+              currentPage === totalPages
                 ? "text-[#e5e7eb] cursor-default"
                 : "text-[#c3c8ce] cursor-pointer"
             } border p-[2px]`}

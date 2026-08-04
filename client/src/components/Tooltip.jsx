@@ -1,12 +1,34 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 export default function Tooltip({
   referenceElementRef,
   handleTogglePopover,
+  setIsOpen,
   isOpen,
   Popper,
   message,
 }) {
+  const popperRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      const clickedOnReference = referenceElementRef?.current?.contains(
+        event.target
+      );
+      const clickedOnPopper = popperRef.current?.contains(event.target);
+
+      if (!clickedOnReference && !clickedOnPopper && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen, referenceElementRef, setIsOpen]);
+
   return (
     <>
       <svg
@@ -32,7 +54,10 @@ export default function Tooltip({
         >
           {({ ref, style, placement, arrowProps }) => (
             <div
-              ref={ref}
+              ref={(node) => {
+                ref(node);
+                popperRef.current = node;
+              }}
               style={style}
               className="popover bg-gray-200 text-black text-sm rounded-md p-2"
               data-placement={placement}

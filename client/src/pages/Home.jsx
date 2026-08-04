@@ -25,16 +25,10 @@ export default function Home({
     e.preventDefault();
     if (name === "" || name === null) {
       setError("Please enter the name of person");
-      setTimeout(() => {
-        setError("");
-      }, 1000);
       return false;
     }
     if (category === "" || difficulty === "") {
       setError("Selecting Category and Difficulty is mandatory");
-      setTimeout(() => {
-        setError("");
-      }, 1000);
       return false;
     }
     requestQuestions();
@@ -64,6 +58,8 @@ export default function Home({
           setIsOpen={setIsOpen}
           handleSubmit={handleSubmit}
           handleTogglePopover={handleTogglePopover}
+          duration={5000}
+          onHide={() => setError("")}
         />
       </div>
       <div className="flex items-center justify-center w-full md:w-1/2 lg:w-1/2">

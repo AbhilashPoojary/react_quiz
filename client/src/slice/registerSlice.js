@@ -23,6 +23,7 @@ const initialState = {
   loading: false,
   success: false,
   error: "",
+  message: "",
 };
 
 const registerSlice = createSlice({
@@ -36,22 +37,29 @@ const registerSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase(registerCall.pending, (state, action) => {
+    builder.addCase(registerCall.pending, (state) => {
       state.loading = true;
+      state.success = false;
+      state.error = "";
+      state.message = "";
     });
     builder.addCase(registerCall.fulfilled, (state, action) => {
       state.loading = false;
       state.success = true;
       state.error = "";
+      state.message = "Registration successful";
     });
     builder.addCase(registerCall.rejected, (state, { payload }) => {
       state.loading = false;
       state.success = false;
-      state.message = payload?.data?.message;
+      state.error = payload?.data?.error || payload?.data?.message || "Registration failed";
+      state.message = state.error;
     });
   },
 });
 
 export const loading = (state) => state?.register?.loading;
 export const message = (state) => state?.register?.message;
+export const error = (state) => state?.register?.error;
+export const success = (state) => state?.register?.success;
 export default registerSlice.reducer;

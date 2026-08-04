@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-export default function Dropdown({ data, setState, state }) {
+export default function Dropdown({ data, setState, state, dropdownId }) {
   const [active, setActive] = useState(false);
   const [select, setSelect] = useState("Select");
-  console.log(state);
+
+  useEffect(() => {
+    const selectedItem = data.find((item) => item.value === state);
+    setSelect(selectedItem ? selectedItem.category : "Select");
+  }, [data, state]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -13,14 +17,30 @@ export default function Dropdown({ data, setState, state }) {
       }
     };
 
+    const handleDropdownOpen = (event) => {
+      if (event.detail !== dropdownId) {
+        setActive(false);
+      }
+    };
+
     document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("dropdown-open", handleDropdownOpen);
+
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("dropdown-open", handleDropdownOpen);
     };
-  }, []);
+  }, [dropdownId]);
 
   const handleDropdownToggle = () => {
-    setActive(!active);
+    const nextState = !active;
+    setActive(nextState);
+
+    if (nextState && dropdownId) {
+      document.dispatchEvent(
+        new CustomEvent("dropdown-open", { detail: dropdownId })
+      );
+    }
   };
 
   const handleItemClick = (item) => {
@@ -52,7 +72,7 @@ export default function Dropdown({ data, setState, state }) {
             className={`p-2 mb-1 hover:bg-gray-100 ${
               select === item.category ? "bg-gray-100" : ""
             }`}
-            key={item.value}
+            key={item.value ?? item.category}
             value={item.value}
             onMouseDown={() => handleItemClick(item)}
           >

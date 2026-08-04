@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
     },
+    sessionId: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

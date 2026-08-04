@@ -1,4 +1,4 @@
-import axios from "axios";
+import apiClient from "../utils/apiClient";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 //create async thunk
@@ -7,7 +7,7 @@ export const leaderboardCall = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const apiUrl = "/api/leaderboard";
-      const res = await axios.get(apiUrl);
+      const res = await apiClient.get(apiUrl);
       return res.data;
     } catch (error) {
       if (error.response) {

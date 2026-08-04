@@ -20,9 +20,14 @@ export const loginCall = createAsyncThunk(
 );
 
 const initialState = {
-  userInfo: localStorage.getItem("currentUser")
+  currentUser: localStorage.getItem("currentUser")
     ? JSON.parse(localStorage.getItem("currentUser"))
     : {},
+  loading: false,
+  isSuccess: false,
+  isReady: false,
+  message: "",
+  alreadyLoggedIn: false,
 };
 
 const authSlice = createSlice({
@@ -31,24 +36,30 @@ const authSlice = createSlice({
   reducers: {
     LOG_OUT(state, action) {
       localStorage.removeItem("currentUser");
+      localStorage.removeItem("jwtToken");
       window.location = "/";
     },
   },
   extraReducers: (builder) => {
-    builder.addCase(loginCall.pending, (state, action) => {
+    builder.addCase(loginCall.pending, (state) => {
       state.loading = true;
+      state.isSuccess = false;
+      state.isReady = false;
+      state.message = "";
+      state.alreadyLoggedIn = false;
     });
     builder.addCase(loginCall.fulfilled, (state, { payload }) => {
       state.loading = false;
-      state.userInfo = payload;
+      state.currentUser = payload;
       state.isSuccess = true;
       state.message = "";
       localStorage.setItem("currentUser", JSON.stringify(payload));
+      localStorage.setItem("jwtToken", payload.token);
       state.isReady = true;
     });
     builder.addCase(loginCall.rejected, (state, { payload }) => {
-      state.message = payload.data.error;
-      console.log(payload.data.error);
+      state.message = payload?.data?.error || payload?.error || "Login failed";
+      state.alreadyLoggedIn = Boolean(payload?.data?.alreadyLoggedIn);
       state.loading = false;
       state.isSuccess = false;
       state.isReady = false;
@@ -58,9 +69,10 @@ const authSlice = createSlice({
 
 export const { LOG_OUT } = authSlice.actions;
 
-export const selectUserInfo = (state) => state?.userInfo?.user?.name;
-export const isSuccess = (state) => state.userInfo.isSuccess;
-export const isReady = (state) => state.userInfo.isReady;
-export const loading = (state) => state.userInfo.loading;
-export const message = (state) => state.userInfo.message;
+export const selectUserInfo = (state) => state?.userInfo?.currentUser?.user?.name;
+export const isSuccess = (state) => state?.userInfo?.isSuccess;
+export const isReady = (state) => state?.userInfo?.isReady;
+export const loading = (state) => state?.userInfo?.loading;
+export const message = (state) => state?.userInfo?.message;
+export const alreadyLoggedIn = (state) => state?.userInfo?.alreadyLoggedIn;
 export default authSlice.reducer;

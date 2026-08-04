@@ -1,11 +1,51 @@
+const https = require("https");
 const Result = require("../Modals/Result");
 
+const getQuestions = async (req, res) => {
+  const {
+    amount = 10,
+    category = "",
+    difficulty = "",
+    type = "multiple",
+  } = req.query;
+
+  const query = new URLSearchParams({
+    amount,
+    category,
+    difficulty,
+    type,
+  }).toString();
+
+  try {
+    const apiUrl = `https://opentdb.com/api.php?${query}`;
+    https
+      .get(apiUrl, (response) => {
+        let data = "";
+
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        response.on("end", () => {
+          const parsed = JSON.parse(data);
+          res.status(200).json(parsed.results || []);
+        });
+      })
+      .on("error", (error) => {
+        res.status(500).json({ error: error.message });
+      });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const result = async (req, res) => {
-  const { ...others } = req.body;
+  const { userId, ...others } = req.body;
   console.log(req.body);
   try {
     const result = await new Result({
       ...others,
+      userId: req.user.userId,
     }).save();
     res.status(201).json(result);
   } catch (error) {
@@ -75,4 +115,10 @@ const searchResult = async (req, res) => {
   }
 };
 
-module.exports = { result, leaderboard, allresult, searchResult };
+module.exports = {
+  getQuestions,
+  result,
+  leaderboard,
+  allresult,
+  searchResult,
+};

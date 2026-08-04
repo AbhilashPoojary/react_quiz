@@ -24,6 +24,7 @@ export default function Result({
   difficulty,
   setDifficulty,
 }) {
+  const [dateSort, setDateSort] = useState("newest");
   const navigate = useNavigate();
   const redirectHome = () => {
     setAlign(false);
@@ -68,6 +69,7 @@ export default function Result({
               data={Categories}
               state={category}
               setState={setCategoty}
+              dropdownId="result-category"
             />
           </div>
           <div className="w-1/4">
@@ -80,12 +82,24 @@ export default function Result({
               ]}
               state={difficulty}
               setState={setDifficulty}
+              dropdownId="result-difficulty"
+            />
+          </div>
+          <div className="w-1/4">
+            <Dropdown
+              data={[
+                { category: "Newest First", value: "newest" },
+                { category: "Oldest First", value: "oldest" },
+              ]}
+              state={dateSort}
+              setState={setDateSort}
+              dropdownId="result-date-sort"
             />
           </div>
         </div>
 
         <div className="relative overflow-x-auto mt-2">
-          <ResultTable data={all} itemsPerPage={5} />
+          <ResultTable data={all} itemsPerPage={5} dateSort={dateSort} />
         </div>
       </div>
       <div className="flex justify-end mt-10">

@@ -29,21 +29,27 @@ export default function LogoutUser({ logoutUser, name }) {
     <>
       {loggedinUser ? (
         <div
-          className={`flex bg-gray-400 p-2 rounded ${show ? "gap-3" : ""}`}
+          className={`flex items-center bg-gray-400 p-2 rounded-[999px] overflow-hidden transition-[gap] duration-500 ease-out ${
+            show ? "gap-3" : "gap-0"
+          }`}
           onMouseEnter={expandBtn}
           onMouseLeave={expandBtn}
         >
-          <UserCircle className="text-white " />
+          <UserCircle className="text-white shrink-0" />
           <span
-            className={`text-elips trsansit-name font-bold text-white ${
-              show ? "" : "hide"
+            className={`text-elips trsansit-name font-bold text-white whitespace-nowrap transition-all duration-500 ease-out ${
+              show
+                ? "opacity-100 max-w-[160px] translate-x-0"
+                : "opacity-0 max-w-0 -translate-x-2"
             }`}
           >
             {loggedinUser ? loggedinUser : name}
           </span>
           <LogOut
-            className={`trsansit-icon cursor-pointer text-white ${
-              show ? "" : "hide"
+            className={`trsansit-icon cursor-pointer text-white shrink-0 transition-all duration-500 ease-out ${
+              show
+                ? "opacity-100 max-w-[24px] translate-x-0"
+                : "opacity-0 max-w-0 translate-x-2"
             }`}
             onClick={() => logoutUser()}
           />

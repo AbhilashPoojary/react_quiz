@@ -16,12 +16,15 @@ export default function QuizDetails({
   difficulty,
   setDifficulty,
   isOpen,
+  setIsOpen,
   enableTimer,
   setEnableTimer,
   referenceElementRef,
   handleTogglePopover,
   Popper,
   set,
+  duration = 5000,
+  onHide,
 }) {
   useEffect(() => {
     setName(JSON.parse(localStorage.getItem("currentUser"))?.user?.name);
@@ -29,7 +32,7 @@ export default function QuizDetails({
   console.log(error);
   return (
     <form className="mt-3" onSubmit={handleSubmit}>
-      <ErrorNotification error={error} />
+      <ErrorNotification error={error} duration={duration} onHide={onHide} />
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
         <InputText
           name="name"
@@ -47,7 +50,12 @@ export default function QuizDetails({
           >
             Category
           </label>
-          <Dropdown data={Categories} setState={setCategoty} state={category} />
+          <Dropdown
+            data={Categories}
+            setState={setCategoty}
+            state={category}
+            dropdownId="quiz-category"
+          />
         </div>
         <div className="sm:col-span-2">
           <label
@@ -64,6 +72,7 @@ export default function QuizDetails({
             ]}
             setState={setDifficulty}
             state={difficulty}
+            dropdownId="quiz-difficulty"
           />
         </div>
         <InputCheckbox
@@ -72,6 +81,7 @@ export default function QuizDetails({
           handleTogglePopover={handleTogglePopover}
           referenceElementRef={referenceElementRef}
           isOpen={isOpen}
+          setIsOpen={setIsOpen}
           message="Enable this for leaderboard"
           value={enableTimer}
           setValue={setEnableTimer}

@@ -13,7 +13,7 @@ export default function InputPassword({
     <div className="sm:col-span-2 mb-4 relative">
       <label
         htmlFor={name}
-        className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+        className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
       >
         {label}
       </label>

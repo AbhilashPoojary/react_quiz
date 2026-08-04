@@ -1,4 +1,4 @@
-import axios from "axios";
+import apiClient from "../utils/apiClient";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 //create async thunk
@@ -8,7 +8,7 @@ export const allplayersCall = createAsyncThunk(
     try {
       const apiUrl = "/api/search";
       console.log(payload);
-      const res = await axios.post(apiUrl, payload);
+      const res = await apiClient.post(apiUrl, payload);
       console.log(res.data);
       return res.data;
     } catch (error) {
