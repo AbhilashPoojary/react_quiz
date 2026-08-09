@@ -3,7 +3,7 @@ import React from "react";
 export const LoadingSkeleton = () => {
   const skeletonItems = Array.from({ length: 4 }).map((_, index) => (
     <div
-      className="w-1/3 p-4 bg-white border border-gray-200 rounded shadow dark:bg-gray-800 dark:border-gray-700 text-center animate-puls"
+      className="leaderboard-card w-full rounded border border-gray-200 bg-white p-4 text-center shadow animate-puls sm:w-[calc(50%-0.625rem)] xl:w-[calc(25%-0.875rem)]"
       key={index}
     >
       <div className="w-24 h-24 mb-3 animate-pulse bg-gray-300 rounded-full shadow-lg m-auto"></div>

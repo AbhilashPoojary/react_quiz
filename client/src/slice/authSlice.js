@@ -39,6 +39,13 @@ const authSlice = createSlice({
       localStorage.removeItem("jwtToken");
       window.location = "/";
     },
+    UPDATE_PASSWORD_EXPIRY(state, action) {
+      state.currentUser = {
+        ...state.currentUser,
+        passwordExpiry: action.payload,
+      };
+      localStorage.setItem("currentUser", JSON.stringify(state.currentUser));
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(loginCall.pending, (state) => {
@@ -67,9 +74,16 @@ const authSlice = createSlice({
   },
 });
 
-export const { LOG_OUT } = authSlice.actions;
+export const { LOG_OUT, UPDATE_PASSWORD_EXPIRY } = authSlice.actions;
 
 export const selectUserInfo = (state) => state?.userInfo?.currentUser?.user?.name;
+export const selectCurrentUser = (state) => state?.userInfo?.currentUser;
+export const selectPasswordExpiry = (state) =>
+  state?.userInfo?.currentUser?.passwordExpiry;
+export const selectUserRole = (state) =>
+  state?.userInfo?.currentUser?.user?.role || "USER";
+export const selectIsAuthenticated = (state) =>
+  Boolean(state?.userInfo?.currentUser?.token);
 export const isSuccess = (state) => state?.userInfo?.isSuccess;
 export const isReady = (state) => state?.userInfo?.isReady;
 export const loading = (state) => state?.userInfo?.loading;

@@ -15,9 +15,9 @@ export default function ConfirmPopup({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="mb-3 text-lg font-semibold text-gray-900">{title}</h3>
-        <p className="mb-5 text-sm text-gray-700">{body}</p>
+      <div className="confirm-card w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="app-strong-text mb-3 text-lg font-semibold text-gray-900">{title}</h3>
+        <p className="app-muted-text mb-5 text-sm text-gray-700">{body}</p>
         <div className="flex justify-end gap-3">
           <button
             type="button"

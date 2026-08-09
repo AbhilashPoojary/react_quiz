@@ -1,6 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Timer } from "lucide-react";
 import QuizOptions from "../components/QuizOptions";
 import ConfirmPopup from "./ConfirmPopup";
+
+const QUESTION_TIME_LIMIT = 20;
+const defaultOptionStyles = [
+  { bgc: "bg-gray-200", fgc: "text-gray-900" },
+  { bgc: "bg-gray-200", fgc: "text-gray-900" },
+  { bgc: "bg-gray-200", fgc: "text-gray-900" },
+  { bgc: "bg-gray-200", fgc: "text-gray-900" },
+];
 
 export default function QuizComponent({
   quizData,
@@ -10,20 +19,42 @@ export default function QuizComponent({
   setScore,
   nextQuestion,
   enableTimer,
+  timerMode,
+  totalDuration,
+  timePerQuestion,
   quizIndex,
+  totalQuestions,
   timeConsumed,
   setTimeConsumed,
+  recordAnswer,
+  finishQuizWithUnanswered,
 }) {
-  const [bg, setBg] = useState([
-    { bgc: "bg-gray-200", fgc: "text-inherit" },
-    { bgc: "bg-gray-200", fgc: "text-inherit" },
-    { bgc: "bg-gray-200", fgc: "text-inherit" },
-    { bgc: "bg-gray-200", fgc: "text-inherit" },
-  ]);
-
-  const [counter, setCounter] = useState(20);
+  const [bg, setBg] = useState(defaultOptionStyles);
+  const effectiveTimerMode = timerMode || "PER_QUESTION";
+  const questionTimeLimit = Number(timePerQuestion || QUESTION_TIME_LIMIT);
+  const totalTimeLimit = Number(totalDuration || totalQuestions * questionTimeLimit);
+  const initialCounter =
+    effectiveTimerMode === "TOTAL" ? totalTimeLimit : questionTimeLimit;
+  const [counter, setCounter] = useState(initialCounter);
   const [showConfirm, setShowConfirm] = useState(false);
+  const timeoutHandledRef = useRef(false);
+  const nextQuestionRef = useRef(nextQuestion);
+  const questionStartedAtRef = useRef(Date.now());
   console.log(quizData.correct_answer);
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${String(minutes).padStart(2, "0")}:${String(
+      remainingSeconds
+    ).padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    nextQuestionRef.current = nextQuestion;
+  }, [nextQuestion]);
+
   const checkAnswer = (item, index) => {
     let updatedBg = [...bg];
     if (item === quizData.correct_answer) {
@@ -34,50 +65,85 @@ export default function QuizComponent({
       const correctIndex = quizData?.correctAnswerIndex;
       updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
     }
+    recordAnswer(item);
     setBg(updatedBg);
-    setTimeConsumed((prevstate) => prevstate + (20 - counter));
+    const elapsedSeconds = enableTimer && effectiveTimerMode === "PER_QUESTION"
+      ? questionTimeLimit - counter
+      : Math.round((Date.now() - questionStartedAtRef.current) / 1000);
+    setTimeConsumed((prevstate) => prevstate + elapsedSeconds);
     setTimeout(() => {
       nextQuestion();
-      setCounter(20);
-      setBg([
-        { bgc: "bg-gray-200", fgc: "text-inherit" },
-        { bgc: "bg-gray-200", fgc: "text-inherit" },
-        { bgc: "bg-gray-200", fgc: "text-inherit" },
-        { bgc: "bg-gray-200", fgc: "text-inherit" },
-      ]);
+      if (effectiveTimerMode === "PER_QUESTION") {
+        setCounter(questionTimeLimit);
+      }
+      setBg(defaultOptionStyles);
     }, 500);
   };
 
   useEffect(() => {
-    if (!enableTimer) {
+    timeoutHandledRef.current = false;
+    questionStartedAtRef.current = Date.now();
+    if (effectiveTimerMode === "PER_QUESTION") {
+      setCounter(questionTimeLimit);
+    }
+    setBg(defaultOptionStyles);
+  }, [quizIndex, effectiveTimerMode, questionTimeLimit]);
+
+  useEffect(() => {
+    if (enableTimer && effectiveTimerMode === "TOTAL") {
+      setCounter(totalTimeLimit);
+    }
+  }, [enableTimer, effectiveTimerMode, totalTimeLimit]);
+
+  useEffect(() => {
+    if (!enableTimer || counter <= 0) {
       return undefined;
     }
 
-    const timer =
-      counter > 0 && setInterval(() => setCounter((prev) => prev - 1), 1000);
+    const timer = setInterval(() => {
+      setCounter((prev) => Math.max(prev - 1, 0));
+    }, 1000);
 
-    if (counter === 0) {
-      setBg((prevBg) => {
-        const updatedBg = [...prevBg];
-        let correctIndex = quizData?.correctAnswerIndex;
-        updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
-        return updatedBg;
-      });
-      setTimeConsumed((prevstate) => prevstate + 20);
-
-      setTimeout(() => {
-        setBg([
-          { bgc: "bg-gray-200", fgc: "text-inherit" },
-          { bgc: "bg-gray-200", fgc: "text-inherit" },
-          { bgc: "bg-gray-200", fgc: "text-inherit" },
-          { bgc: "bg-gray-200", fgc: "text-inherit" },
-        ]);
-        nextQuestion();
-        setCounter(20);
-      }, 500);
-    }
     return () => clearInterval(timer);
-  }, [counter, enableTimer, nextQuestion, quizData, setTimeConsumed]);
+  }, [counter, enableTimer]);
+
+  useEffect(() => {
+    if (!enableTimer || counter !== 0 || timeoutHandledRef.current) {
+      return undefined;
+    }
+
+    timeoutHandledRef.current = true;
+
+    if (effectiveTimerMode === "TOTAL") {
+      finishQuizWithUnanswered?.(totalTimeLimit);
+      return undefined;
+    }
+
+    setBg((prevBg) => {
+      const updatedBg = [...prevBg];
+      let correctIndex = quizData?.correctAnswerIndex;
+      updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
+      return updatedBg;
+    });
+    recordAnswer("");
+    setTimeConsumed((prevstate) => prevstate + questionTimeLimit);
+
+    const timeout = setTimeout(() => {
+      nextQuestionRef.current();
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [
+    counter,
+    enableTimer,
+    effectiveTimerMode,
+    finishQuizWithUnanswered,
+    quizData?.correctAnswerIndex,
+    questionTimeLimit,
+    recordAnswer,
+    setTimeConsumed,
+    totalTimeLimit,
+  ]);
 
   const handleQuitConfirm = () => {
     setShowConfirm(false);
@@ -95,25 +161,32 @@ export default function QuizComponent({
         onConfirm={handleQuitConfirm}
         onCancel={() => setShowConfirm(false)}
       />
-      <div className="flex flex-col items-center border-b py-5 md:flex-row md:justify-between lg:flex-row lg:justify-between">
+      <div className="flex flex-col items-center gap-2 border-b py-5 text-center sm:flex-row sm:justify-between sm:text-left">
         <span className="font-semibold text-lg">{quizData?.category}</span>
         <h1 className="font-semibold text-lg">{name}</h1>
         <span className="font-semibold text-lg">Score: {score}</span>
       </div>
       <div>
         <div>
-          <div className="flex justify-between items-center">
-            <h1 className="py-5">Question {quizIndex + 1}:</h1>
-            <span>{enableTimer && counter}</span>
+          <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1>
+              Question {quizIndex + 1} of {totalQuestions}
+            </h1>
+            {enableTimer && (
+              <span className="flex items-center gap-1 font-semibold">
+                <Timer size={18} />
+                {formatTime(counter)}
+              </span>
+            )}
           </div>
           <QuizOptions quizData={quizData} checkAnswer={checkAnswer} bg={bg} />
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Total time consumed {enableTimer && timeConsumed} seconds
+              Total time consumed {timeConsumed} seconds
             </span>
             <div>
               <button
-                className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded p-3 text-white"
+                className="w-full rounded bg-red-600 p-3 text-white transition duration-300 ease-in-out hover:bg-red-800 sm:w-auto"
                 onClick={() => setShowConfirm(true)}
               >
                 Quit now

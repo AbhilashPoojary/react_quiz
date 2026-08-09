@@ -1,5 +1,135 @@
 const https = require("https");
 const Result = require("../Modals/Result");
+const User = require("../Modals/User");
+const Event = require("../Modals/Event");
+const Notification = require("../Modals/Notification");
+const AdminNotification = require("../Modals/AdminNotification");
+const UserNotification = require("../Modals/UserNotification");
+const EventRegistration = require("../Modals/EventRegistration");
+const EventResult = require("../Modals/EventResult");
+const Challenge = require("../Modals/Challenge");
+const ChallengeAttempt = require("../Modals/ChallengeAttempt");
+const {
+  buildEventEndAt,
+  getEffectiveEventStatus,
+  withEffectiveEventStatus,
+} = require("../utils/eventStatus");
+
+const categoryNames = {
+  9: "General Knowledge",
+  10: "Books",
+  11: "Films",
+  12: "Music",
+  13: "Musicals and Theaters",
+  14: "Television",
+  15: "Video Games",
+  16: "Board Games",
+  17: "Science and Nature",
+  18: "Computer",
+  19: "Mathematics",
+  20: "Mythology",
+  21: "Sports",
+  22: "Geography",
+  23: "History",
+  24: "Politics",
+  26: "Celebrities",
+  27: "Animals",
+  28: "Vehicles",
+  29: "Comics",
+  30: "Gadgets",
+  31: "Japanese Anime",
+  32: "Cartoon and Animations",
+};
+
+const POINTS_PER_QUESTION = 10;
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeResult = (item) => {
+  const result = item.toObject ? item.toObject() : { ...item };
+  const questionCount = Math.max(1, toNumber(result.questionCount, 10));
+  const score = toNumber(result.score);
+  const maxScore = Math.max(
+    1,
+    toNumber(result.maxScore, questionCount * POINTS_PER_QUESTION)
+  );
+  const correctAnswers = Math.min(
+    questionCount,
+    Math.max(
+      0,
+      toNumber(result.correctAnswers, Math.round(score / POINTS_PER_QUESTION))
+    )
+  );
+  const wrongAnswers = Math.max(
+    0,
+    toNumber(result.wrongAnswers, questionCount - correctAnswers)
+  );
+  const timeTaken = toNumber(result.timeTaken, toNumber(result.totaltime));
+  const accuracy = toNumber(
+    result.accuracy,
+    (correctAnswers / questionCount) * 100
+  );
+  const averageTimePerQuestion = toNumber(
+    result.averageTimePerQuestion,
+    timeTaken / questionCount
+  );
+  const scorePercentage = toNumber(
+    result.scorePercentage,
+    (score / maxScore) * 100
+  );
+
+  return {
+    ...result,
+    score,
+    maxScore,
+    correctAnswers,
+    wrongAnswers,
+    accuracy,
+    questionCount,
+    timeTaken,
+    totaltime: toNumber(result.totaltime, timeTaken),
+    averageTimePerQuestion,
+    scorePercentage,
+  };
+};
+
+const rankResults = (items) =>
+  items.sort((a, b) => {
+    if (b.accuracy !== a.accuracy) {
+      return b.accuracy - a.accuracy;
+    }
+
+    if (b.scorePercentage !== a.scorePercentage) {
+      return b.scorePercentage - a.scorePercentage;
+    }
+
+    return a.averageTimePerQuestion - b.averageTimePerQuestion;
+  });
+
+const normalizeAnswerAnalysis = (answers = [], fallbackCategory, fallbackDifficulty) =>
+  (Array.isArray(answers) ? answers : []).map((item) => {
+    const isCorrect = Boolean(item.isCorrect);
+
+    return {
+      question: String(item.question || ""),
+      options: Array.isArray(item.options)
+        ? item.options.map((option) => String(option))
+        : [],
+      selectedAnswer: String(item.selectedAnswer || ""),
+      correctAnswer: String(item.correctAnswer || ""),
+      isCorrect,
+      category: String(item.category || fallbackCategory || ""),
+      difficulty: String(item.difficulty || fallbackDifficulty || ""),
+      pointsEarned: Number.isFinite(Number(item.pointsEarned))
+        ? Number(item.pointsEarned)
+        : isCorrect
+        ? POINTS_PER_QUESTION
+        : 0,
+    };
+  });
 
 const getQuestions = async (req, res) => {
   const {
@@ -43,9 +173,47 @@ const result = async (req, res) => {
   const { userId, ...others } = req.body;
   console.log(req.body);
   try {
+    const score = toNumber(others.score);
+    const questionCount = Math.max(1, toNumber(others.questionCount, 10));
+    const maxScore = Math.max(
+      1,
+      toNumber(others.maxScore, questionCount * POINTS_PER_QUESTION)
+    );
+    const correctAnswers = Math.min(
+      questionCount,
+      Math.max(
+        0,
+        toNumber(others.correctAnswers, Math.round(score / POINTS_PER_QUESTION))
+      )
+    );
+    const wrongAnswers = Math.max(
+      0,
+      toNumber(others.wrongAnswers, questionCount - correctAnswers)
+    );
+    const timeTaken = toNumber(others.timeTaken, toNumber(others.totaltime));
+    const accuracy = (correctAnswers / questionCount) * 100;
+    const averageTimePerQuestion = timeTaken / questionCount;
+    const scorePercentage = (score / maxScore) * 100;
+    const answers = normalizeAnswerAnalysis(
+      others.answers,
+      others.category,
+      others.difficulty
+    );
+
     const result = await new Result({
       ...others,
       userId: req.user.userId,
+      score,
+      maxScore,
+      correctAnswers,
+      wrongAnswers,
+      accuracy,
+      questionCount,
+      timeTaken,
+      totaltime: timeTaken,
+      averageTimePerQuestion,
+      scorePercentage,
+      answers,
     }).save();
     res.status(201).json(result);
   } catch (error) {
@@ -53,20 +221,36 @@ const result = async (req, res) => {
   }
 };
 
+const quizAnalysis = async (req, res) => {
+  try {
+    const attempt = await Result.findOne({
+      _id: req.params.attemptId,
+      userId: req.user.userId,
+    })
+      .select(
+        "name category difficulty score maxScore correctAnswers wrongAnswers accuracy questionCount timeTaken totaltime averageTimePerQuestion scorePercentage answers createdAt"
+      )
+      .lean();
+
+    if (!attempt) {
+      return res.status(404).json({ error: "Quiz attempt not found" });
+    }
+
+    res.status(200).json(normalizeResult(attempt));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const leaderboard = async (req, res) => {
   try {
-    const results = await Result.aggregate([
-      {
-        $sort: {
-          score: -1,
-          totaltime: 1,
-        },
-      },
-      {
-        $limit: 4,
-      },
-    ]);
-    res.status(200).json(results);
+    const questionCount = toNumber(req.query.questionCount);
+    const results = await Result.find().select("-answers").lean();
+    const normalizedResults = results
+      .map(normalizeResult)
+      .filter((item) => !questionCount || item.questionCount === questionCount);
+
+    res.status(200).json(rankResults(normalizedResults).slice(0, 4));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -74,23 +258,16 @@ const leaderboard = async (req, res) => {
 
 const allresult = async (req, res) => {
   try {
-    const results = await Result.aggregate([
-      {
-        $sort: {
-          score: -1,
-          totaltime: 1,
-        },
-      },
-    ]);
-    res.status(200).json(results);
+    const results = await Result.find().select("-answers").lean();
+    res.status(200).json(rankResults(results.map(normalizeResult)));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 const searchResult = async (req, res) => {
-  const { category, difficulty } = req.body;
-  console.log(category, difficulty);
+  const { category, difficulty, questionCount } = req.body;
+  console.log(category, difficulty, questionCount);
   try {
     const matchStage = {};
     if (category !== undefined && category !== null && category !== "") {
@@ -99,26 +276,624 @@ const searchResult = async (req, res) => {
     if (difficulty !== undefined && difficulty !== null && difficulty !== "") {
       matchStage.difficulty = difficulty;
     }
-    const aggregationPipeline = [];
-    if (Object.keys(matchStage).length > 0) {
-      aggregationPipeline.push({ $match: matchStage });
-    }
-    let results;
-    if (Object.keys(matchStage).length > 0) {
-      results = await Result.aggregate(aggregationPipeline);
-    } else {
-      results = await Result.find();
-    }
-    res.status(200).json(results);
+    const results = await Result.find(matchStage)
+      .select("-profilePicture -answers")
+      .lean();
+    const selectedQuestionCount = toNumber(questionCount);
+    const normalizedResults = results
+      .map(normalizeResult)
+      .filter(
+        (item) =>
+          !selectedQuestionCount || item.questionCount === selectedQuestionCount
+      );
+
+    res.status(200).json(
+      rankResults(normalizedResults).map(({ profilePicture, ...item }) => item)
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
+const profile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select(
+      "name email profilePicture"
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const results = await Result.find({ userId: req.user.userId }).sort({
+      createdAt: -1,
+    });
+
+    const gamesPlayed = results.length;
+    const highestScore = gamesPlayed
+      ? Math.max(...results.map((item) => item.score))
+      : 0;
+    const totalScore = results.reduce((sum, item) => sum + item.score, 0);
+    const avgScore = gamesPlayed ? Math.round(totalScore / gamesPlayed) : 0;
+
+    const categoryMap = results.reduce((acc, item) => {
+      const category = item.category;
+
+      if (!acc[category]) {
+        acc[category] = {
+          category,
+          categoryName: categoryNames[category] || "Unknown",
+          gamesPlayed: 0,
+          totalScore: 0,
+          highestScore: 0,
+        };
+      }
+
+      acc[category].gamesPlayed += 1;
+      acc[category].totalScore += item.score;
+      acc[category].highestScore = Math.max(
+        acc[category].highestScore,
+        item.score
+      );
+
+      return acc;
+    }, {});
+
+    const performanceByCategory = Object.values(categoryMap)
+      .map((item) => ({
+        ...item,
+        avgScore: Math.round(item.totalScore / item.gamesPlayed),
+      }))
+      .sort((a, b) => b.avgScore - a.avgScore);
+
+    const recentHistory = results.slice(0, 8).map((item) => ({
+      _id: item._id,
+      category: item.category,
+      categoryName: categoryNames[item.category] || "Unknown",
+      difficulty: item.difficulty,
+      score: item.score,
+      totalTime: item.totaltime,
+      createdAt: item.createdAt,
+    }));
+    const userId = req.user.userId;
+    const challenges = await Challenge.find({
+      participants: userId,
+    })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean();
+    const challengeIds = challenges.map((item) => item._id.toString());
+    const challengeAttempts = await ChallengeAttempt.find({
+      challengeId: { $in: challengeIds },
+    }).lean();
+    const attemptMap = challengeAttempts.reduce((acc, attempt) => {
+      if (!acc[attempt.challengeId]) {
+        acc[attempt.challengeId] = [];
+      }
+
+      acc[attempt.challengeId].push(attempt);
+      return acc;
+    }, {});
+    const challengeHistory = challenges.map((challenge) => {
+      const attempts = attemptMap[challenge._id.toString()] || [];
+      const userAttempt =
+        attempts.find((attempt) => attempt.userId === userId) || null;
+      const isExpired =
+        challenge.status !== "COMPLETED" &&
+        challenge.status !== "CANCELLED" &&
+        new Date(challenge.expiresAt) <= new Date();
+
+      return {
+        _id: challenge._id,
+        challengeCode: challenge.challengeCode,
+        categoryName: challenge.config.categoryName,
+        difficulty: challenge.config.difficulty,
+        questionCount: challenge.config.questionCount,
+        duration: challenge.config.duration,
+        status: isExpired ? "EXPIRED" : challenge.status,
+        createdAt: challenge.createdAt,
+        participantCount: challenge.participants.length,
+        completedCount: attempts.length,
+        hasCompleted: Boolean(userAttempt),
+        score: userAttempt?.score ?? null,
+        maxScore: userAttempt?.maxScore ?? challenge.config.questionCount * 10,
+      };
+    });
+
+    res.status(200).json({
+      user,
+      stats: {
+        gamesPlayed,
+        highestScore,
+        avgScore,
+        accuracy: avgScore,
+      },
+      performanceByCategory,
+      recentHistory,
+      challengeHistory,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const notifications = async (req, res) => {
+  try {
+    const [items, userNotifications] = await Promise.all([
+      Notification.find({ userId: req.user.userId }).sort({
+        createdAt: -1,
+      }),
+      UserNotification.find({ userId: req.user.userId })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+    const adminNotificationIds = userNotifications.map(
+      (item) => item.notificationId
+    );
+    const adminNotifications = await AdminNotification.find({
+      _id: { $in: adminNotificationIds },
+    }).lean();
+    const adminNotificationMap = adminNotifications.reduce((acc, item) => {
+      acc[item._id.toString()] = item;
+      return acc;
+    }, {});
+    const generalNotifications = userNotifications
+      .filter((delivery) => adminNotificationMap[delivery.notificationId])
+      .map((delivery) => {
+        const notification = adminNotificationMap[delivery.notificationId];
+
+        return {
+          _id: delivery._id,
+          notificationId: notification._id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          targetType: notification.targetType,
+          read: delivery.isRead,
+          isRead: delivery.isRead,
+          readAt: delivery.readAt,
+          createdAt: delivery.createdAt,
+          source: "ADMIN",
+        };
+      });
+    const latestItems = items.filter(
+      (item, index, list) =>
+        list.findIndex((entry) => entry.eventId === item.eventId) === index
+    );
+    const eventIds = latestItems.map((item) => item.eventId);
+    const [events, registrations] = await Promise.all([
+      Event.find({ _id: { $in: eventIds } }).select(
+        "eventName categoryName difficulty eventDate startTime startAt endAt duration status registrationDeadline"
+      ),
+      EventRegistration.find({
+        userId: req.user.userId,
+        eventId: { $in: eventIds },
+      }),
+    ]);
+
+    const eventMap = events.reduce((acc, event) => {
+      acc[event._id.toString()] = event;
+      return acc;
+    }, {});
+    const registeredEventIds = new Set(
+      registrations.map((item) => item.eventId)
+    );
+    const existingEventIds = Object.keys(eventMap);
+    const results = await EventResult.find({
+      userId: req.user.userId,
+      eventId: { $in: existingEventIds },
+    });
+    const submittedEventIds = new Set(results.map((item) => item.eventId));
+
+    const eventNotifications = latestItems
+        .filter((item) => eventMap[item.eventId])
+        .map((item) => ({
+          ...item.toObject(),
+          type: "EVENT",
+          isRead: item.read,
+          source: "EVENT",
+          event: {
+            ...withEffectiveEventStatus(eventMap[item.eventId]),
+            computedStatus: getEffectiveEventStatus(eventMap[item.eventId]),
+          },
+          isRegistered: registeredEventIds.has(item.eventId),
+          hasSubmitted: submittedEventIds.has(item.eventId),
+        }));
+
+    res.status(200).json(
+      [...generalNotifications, ...eventNotifications].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      )
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const unreadNotificationCount = async (req, res) => {
+  try {
+    const [result] = await Notification.aggregate([
+      { $match: { userId: req.user.userId } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$eventId", read: { $first: "$read" } } },
+      { $match: { read: false } },
+      { $count: "count" },
+    ]);
+    const generalCount = await UserNotification.countDocuments({
+      userId: req.user.userId,
+      isRead: false,
+    });
+    const count = (result?.count || 0) + generalCount;
+
+    res.status(200).json({ count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const markNotificationsRead = async (req, res) => {
+  try {
+    await Promise.all([
+      Notification.updateMany(
+        { userId: req.user.userId, read: false },
+        { read: true }
+      ),
+      UserNotification.updateMany(
+        { userId: req.user.userId, isRead: false },
+        { isRead: true, readAt: new Date() }
+      ),
+    ]);
+
+    res.status(200).json({ message: "Notifications marked as read" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const markNotificationRead = async (req, res) => {
+  try {
+    const updated = await UserNotification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.userId },
+      { isRead: true, readAt: new Date() },
+      { new: true }
+    );
+
+    if (!updated) {
+      const legacyUpdated = await Notification.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.userId },
+        { read: true },
+        { new: true }
+      );
+
+      if (!legacyUpdated) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+    }
+
+    res.status(200).json({ message: "Notification marked as read" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const markAllNotificationsRead = markNotificationsRead;
+
+const registerEvent = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const effectiveStatus = getEffectiveEventStatus(event);
+
+    if (effectiveStatus !== "UPCOMING" && effectiveStatus !== "LIVE") {
+      return res.status(400).json({ error: "Event is not open for registration" });
+    }
+
+    const registrationDeadline = new Date(event.registrationDeadline);
+    registrationDeadline.setHours(23, 59, 59, 999);
+    registrationDeadline.setHours(registrationDeadline.getHours() + 1);
+
+    if (registrationDeadline < new Date()) {
+      return res.status(400).json({ error: "Registration deadline has passed" });
+    }
+
+    const registration = await EventRegistration.findOneAndUpdate(
+      { eventId: event._id.toString(), userId: req.user.userId },
+      { eventId: event._id.toString(), userId: req.user.userId },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.status(200).json({
+      message: "Registered successfully",
+      registration,
+      event: withEffectiveEventStatus(event),
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(200).json({ message: "Already registered" });
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const registeredEvents = async (req, res) => {
+  try {
+    const registrations = await EventRegistration.find({
+      userId: req.user.userId,
+    }).sort({ createdAt: -1 });
+    const eventIds = registrations.map((item) => item.eventId);
+    const [events, results] = await Promise.all([
+      Event.find({ _id: { $in: eventIds } }).sort({ eventDate: 1 }),
+      EventResult.find({ userId: req.user.userId, eventId: { $in: eventIds } }),
+    ]);
+    const resultMap = results.reduce((acc, item) => {
+      acc[item.eventId] = item;
+      return acc;
+    }, {});
+
+    res.status(200).json(
+      events.map((event) => ({
+        ...event.toObject(),
+        effectiveStatus: getEffectiveEventStatus(event),
+        computedStatus: getEffectiveEventStatus(event),
+        hasSubmitted: Boolean(resultMap[event._id.toString()]),
+        result: resultMap[event._id.toString()] || null,
+      }))
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getEventForPlay = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const registration = await EventRegistration.findOne({
+      eventId: event._id.toString(),
+      userId: req.user.userId,
+    });
+
+    if (!registration) {
+      return res.status(403).json({ error: "Please register before participating" });
+    }
+
+    const existingResult = await EventResult.findOne({
+      eventId: event._id.toString(),
+      userId: req.user.userId,
+    });
+
+    if (existingResult) {
+      return res.status(400).json({ error: "You have already completed this event" });
+    }
+
+    const effectiveStatus = getEffectiveEventStatus(event);
+
+    if (effectiveStatus !== "LIVE") {
+      return res.status(400).json({ error: "Event is not live yet" });
+    }
+
+    res.status(200).json({
+      _id: event._id,
+      eventName: event.eventName,
+      categoryName: event.categoryName,
+      difficulty: event.difficulty,
+      duration: event.duration,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      effectiveStatus,
+      questionCount: event.questionCount,
+      questions: event.questions
+        .sort((a, b) => a.questionOrder - b.questionOrder)
+        .map((question) => ({
+          questionOrder: question.questionOrder,
+          question: question.question,
+          answers: question.answers
+            .sort((a, b) => a.answerOrder - b.answerOrder)
+            .map((answer) => ({
+              answerOrder: answer.answerOrder,
+              answer: answer.answer,
+            })),
+        })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const submitEventResult = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const registration = await EventRegistration.findOne({
+      eventId: event._id.toString(),
+      userId: req.user.userId,
+    });
+
+    if (!registration) {
+      return res.status(403).json({ error: "Please register before submitting" });
+    }
+
+    const existingResult = await EventResult.findOne({
+      eventId: event._id.toString(),
+      userId: req.user.userId,
+    });
+
+    if (existingResult) {
+      return res.status(400).json({ error: "You have already completed this event" });
+    }
+
+    const effectiveStatus = getEffectiveEventStatus(event);
+
+    if (effectiveStatus === "UPCOMING") {
+      return res.status(400).json({ error: "Event is not live yet" });
+    }
+
+    if (effectiveStatus !== "LIVE") {
+      return res.status(400).json({ error: "Event submission time has ended" });
+    }
+
+    if (new Date() > buildEventEndAt(event)) {
+      return res.status(400).json({ error: "Event submission time has ended" });
+    }
+
+    const submittedAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
+    const submittedMap = submittedAnswers.reduce((acc, item) => {
+      acc[item.questionOrder] = item.selectedAnswer;
+      return acc;
+    }, {});
+
+    let correctCount = 0;
+    const answers = event.questions.map((question) => {
+      const selectedAnswer = submittedMap[question.questionOrder] || "";
+      const isCorrect = selectedAnswer === question.correctAnswer;
+
+      if (isCorrect) {
+        correctCount += 1;
+      }
+
+      return {
+        questionOrder: question.questionOrder,
+        selectedAnswer,
+        correctAnswer: question.correctAnswer,
+        isCorrect,
+      };
+    });
+
+    const totalQuestions = event.questions.length;
+    const score = totalQuestions
+      ? Math.round((correctCount / totalQuestions) * 100)
+      : 0;
+
+    const result = await new EventResult({
+      eventId: event._id.toString(),
+      userId: req.user.userId,
+      score,
+      correctCount,
+      totalQuestions,
+      totalTime: Number(req.body.totalTime || 0),
+      answers,
+    }).save();
+
+    const payload = await buildEventResultPayload(
+      event._id.toString(),
+      req.user.userId,
+      result
+    );
+
+    res.status(201).json(payload);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "You have already completed this event" });
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getEventResult = async (req, res) => {
+  try {
+    const result = await EventResult.findOne({
+      eventId: req.params.id,
+      userId: req.user.userId,
+    });
+
+    if (!result) {
+      return res.status(404).json({ error: "Result not found" });
+    }
+
+    const payload = await buildEventResultPayload(
+      req.params.id,
+      req.user.userId,
+      result
+    );
+
+    res.status(200).json(payload);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const buildEventResultPayload = async (eventId, userId, currentResult) => {
+  const [event, results] = await Promise.all([
+    Event.findById(eventId).select(
+      "eventName categoryName difficulty questionCount duration status eventDate startTime startAt endAt"
+    ),
+    EventResult.find({ eventId }).sort({
+      score: -1,
+      totalTime: 1,
+      createdAt: 1,
+    }),
+  ]);
+
+  const userIds = results.map((item) => item.userId);
+  const users = await User.find({ _id: { $in: userIds } }).select(
+    "name email profilePicture"
+  );
+  const userMap = users.reduce((acc, user) => {
+    acc[user._id.toString()] = user;
+    return acc;
+  }, {});
+
+  const rankedResults = results.map((item, index) => {
+    const user = userMap[item.userId];
+
+    return {
+      _id: item._id,
+      rank: index + 1,
+      userId: item.userId,
+      name: user?.name || "Unknown User",
+      profilePicture: user?.profilePicture || "",
+      score: item.score,
+      correctCount: item.correctCount,
+      totalQuestions: item.totalQuestions,
+      totalTime: item.totalTime,
+      createdAt: item.createdAt,
+    };
+  });
+
+  const currentRank =
+    rankedResults.find((item) => item.userId === userId)?.rank || null;
+
+  return {
+    result: currentResult,
+    event: event ? withEffectiveEventStatus(event) : null,
+    leaderboard: rankedResults.slice(0, 5),
+    participantCount: rankedResults.length,
+    rank: currentRank,
+    currentUserEntry:
+      rankedResults.find((item) => item.userId === userId) || null,
+  };
+};
+
 module.exports = {
   getQuestions,
   result,
+  quizAnalysis,
   leaderboard,
   allresult,
   searchResult,
+  profile,
+  notifications,
+  unreadNotificationCount,
+  markNotificationsRead,
+  markNotificationRead,
+  markAllNotificationsRead,
+  registerEvent,
+  registeredEvents,
+  getEventForPlay,
+  submitEventResult,
+  getEventResult,
 };

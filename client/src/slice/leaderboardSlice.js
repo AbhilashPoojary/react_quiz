@@ -7,7 +7,10 @@ export const leaderboardCall = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const apiUrl = "/api/leaderboard";
-      const res = await apiClient.get(apiUrl);
+      const params = payload?.questionCount
+        ? { questionCount: payload.questionCount }
+        : {};
+      const res = await apiClient.get(apiUrl, { params });
       return res.data;
     } catch (error) {
       if (error.response) {

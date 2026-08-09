@@ -30,6 +30,74 @@ const Resultschema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    maxScore: {
+      type: Number,
+      default: 100,
+    },
+    correctAnswers: {
+      type: Number,
+      default: 0,
+    },
+    wrongAnswers: {
+      type: Number,
+      default: 0,
+    },
+    accuracy: {
+      type: Number,
+      default: 0,
+    },
+    questionCount: {
+      type: Number,
+      default: 10,
+    },
+    timeTaken: {
+      type: Number,
+      default: 0,
+    },
+    averageTimePerQuestion: {
+      type: Number,
+      default: 0,
+    },
+    scorePercentage: {
+      type: Number,
+      default: 0,
+    },
+    answers: [
+      {
+        question: {
+          type: String,
+          required: true,
+        },
+        options: {
+          type: [String],
+          default: [],
+        },
+        selectedAnswer: {
+          type: String,
+          default: "",
+        },
+        correctAnswer: {
+          type: String,
+          required: true,
+        },
+        isCorrect: {
+          type: Boolean,
+          default: false,
+        },
+        category: {
+          type: String,
+          default: "",
+        },
+        difficulty: {
+          type: String,
+          default: "",
+        },
+        pointsEarned: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

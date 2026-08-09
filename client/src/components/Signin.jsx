@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   loginCall,
@@ -7,6 +7,7 @@ import {
   message,
   isSuccess,
   alreadyLoggedIn,
+  selectUserRole,
 } from "../slice/authSlice";
 import InputPassword from "./InputPassword";
 import InputText from "./InputText";
@@ -20,16 +21,38 @@ export default function Signin({ switchToSignUp, setAlign }) {
     type: "info",
     message: "",
   });
+  const [formErrors, setFormErrors] = useState({});
+  const [hasSubmittedCredentials, setHasSubmittedCredentials] = useState(false);
   const [showSessionPopup, setShowSessionPopup] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const state = useSelector(loading);
   const error = useSelector(message);
   const successState = useSelector(isSuccess);
   const conflictState = useSelector(alreadyLoggedIn);
+  const role = useSelector(selectUserRole);
   const dispatch = useDispatch();
 
   const handleSubmit = function (e) {
     e.preventDefault();
+    const errors = {};
+
+    if (!email.trim()) {
+      errors.email = "Email is mandatory";
+    }
+
+    if (!password.trim()) {
+      errors.password = "Password is mandatory";
+    }
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      setHasSubmittedCredentials(false);
+      return;
+    }
+
+    setHasSubmittedCredentials(true);
     const user = {
       email,
       password,
@@ -43,19 +66,19 @@ export default function Signin({ switchToSignUp, setAlign }) {
         type: "success",
         message: "Login successful",
       });
-      navigate("/info");
+      navigate(location.state?.from || (role === "ADMIN" ? "/admin/dashboard" : "/info"));
     }
-  }, [successState, navigate]);
+  }, [successState, navigate, role]);
 
   useEffect(() => {
-    if (error && !state) {
+    if (error && !state && hasSubmittedCredentials) {
       if (conflictState) {
         setNotification({ type: "info", message: "" });
       } else {
         setNotification({ type: "error", message: error });
       }
     }
-  }, [error, state, conflictState]);
+  }, [error, state, conflictState, hasSubmittedCredentials]);
 
   useEffect(() => {
     if (conflictState) {
@@ -88,11 +111,11 @@ export default function Signin({ switchToSignUp, setAlign }) {
         onConfirm={handleSessionConfirm}
         onCancel={handleSessionCancel}
       />
-      <h2 className="my-4 text-center font-semibold text-xl">
+      <h2 className="app-strong-text my-4 text-center font-semibold text-xl">
         Sign in to the Quiz
       </h2>
       <form
-        className="w-1/2 m-auto border p-10 rounded bg-gray-50"
+        className="auth-card mx-auto w-full max-w-md rounded border bg-gray-50 p-5 sm:p-8 lg:p-10"
         onSubmit={handleSubmit}
       >
         <ErrorNotification
@@ -105,20 +128,39 @@ export default function Signin({ switchToSignUp, setAlign }) {
           name="email"
           label="Email"
           value={email}
-          setValue={setEmail}
+          setValue={(value) => {
+            setEmail(value);
+            setFormErrors((prev) => ({ ...prev, email: "" }));
+            setNotification({ type: "info", message: "" });
+            setHasSubmittedCredentials(false);
+          }}
           type="text"
+          required
+          error={formErrors.email}
         />
         <InputPassword
           name="password"
           label="Password"
           value={password}
-          setValue={setPassword}
+          setValue={(value) => {
+            setPassword(value);
+            setFormErrors((prev) => ({ ...prev, password: "" }));
+            setNotification({ type: "info", message: "" });
+            setHasSubmittedCredentials(false);
+          }}
+          required
+          error={formErrors.password}
         />
-        <div className="sm:col-span-2 mt-2 flex justify-between items-end">
+        <div className="-mt-2 mb-3 text-right">
+          <Link className="auth-link text-sm text-blue-500 underline" to="/forgot-password">
+            Forgot Password?
+          </Link>
+        </div>
+        <div className="mt-2 flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-end sm:justify-between">
           <button className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded px-3 py-2 text-white">
             Submit
           </button>
-          <Link className="underline text-blue-500" onClick={switchToSignUp}>
+          <Link className="auth-link underline text-blue-500" onClick={switchToSignUp}>
             Register here
           </Link>
         </div>

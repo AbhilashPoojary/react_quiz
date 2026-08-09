@@ -50,26 +50,29 @@ export default function Dropdown({ data, setState, state, dropdownId }) {
   };
 
   return (
-    <div className="dropdown cursor-pointer border p-2 rounded relative">
-      <div
-        tabIndex="0"
-        onMouseDown={handleDropdownToggle}
-        className="dropdown-btn flex justify-between"
+    <div className="dropdown app-dropdown cursor-pointer border p-2 rounded relative">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleDropdownToggle();
+        }}
+        className="dropdown-btn flex w-full justify-between text-left"
       >
         <span>{select}</span>
         {active ? (
-          <ChevronUp color="gray" strokeWidth="1" />
+          <ChevronUp className="pointer-events-none text-gray-500" strokeWidth="1" />
         ) : (
-          <ChevronDown color="gray" strokeWidth="1" />
+          <ChevronDown className="pointer-events-none text-gray-500" strokeWidth="1" />
         )}
-      </div>
+      </button>
       <div
-        className="dropdown-content  max-h-60 overflow-auto absolute z-50 w-full left-0 top-10 bg-white border shadow-lg"
+        className="dropdown-content app-dropdown-menu max-h-60 overflow-auto absolute z-50 w-full left-0 top-10 border shadow-lg"
         style={{ display: active ? "block" : "none" }}
       >
         {data.map((item) => (
           <div
-            className={`p-2 mb-1 hover:bg-gray-100 ${
+            className={`app-dropdown-item p-2 mb-1 ${
               select === item.category ? "bg-gray-100" : ""
             }`}
             key={item.value ?? item.category}

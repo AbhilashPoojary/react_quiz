@@ -1,55 +1,185 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import quizMaze from "../assets/homeimage.jpg";
 import Categories from "../data/Categories";
 import { useNavigate } from "react-router-dom";
 import { Popper } from "react-popper";
 import QuizDetails from "../components/QuizDetails";
+import QuizSetupV2 from "../components/QuizSetupV2";
+import apiClient from "../utils/apiClient";
 export default function Home({
   requestQuestions,
   name,
   difficulty,
+  questionType,
+  questionCount,
   category,
   enableTimer,
   setCategoty,
   setDifficulty,
+  setQuestionType,
+  setQuestionCount,
   setEnableTimer,
+  timerMode,
+  setTimerMode,
+  totalDuration,
+  setTotalDuration,
+  timePerQuestion,
+  setTimePerQuestion,
   setName,
 }) {
   const referenceElementRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const [challengeCode, setChallengeCode] = useState("");
+  const [challengeCodeError, setChallengeCodeError] = useState("");
+  const [setupVersion, setSetupVersion] = useState("V1");
+  const [setupVersionLoading, setSetupVersionLoading] = useState(true);
 
   const navigate = useNavigate();
-  const handleSubmit = (e) => {
-    debugger;
+
+  useEffect(() => {
+    const loadSetupVersion = async () => {
+      try {
+        const response = await apiClient.get("/api/settings/quiz-setup-version");
+        setSetupVersion(response.data?.quizSetupVersion === "V2" ? "V2" : "V1");
+      } catch (error) {
+        setSetupVersion("V1");
+      } finally {
+        setSetupVersionLoading(false);
+      }
+    };
+
+    loadSetupVersion();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = {};
+    setError("");
+
     if (name === "" || name === null) {
-      setError("Please enter the name of person");
+      errors.name = "User Name is mandatory";
+    }
+
+    if (category === "") {
+      errors.category = "Category is mandatory";
+    }
+
+    if (difficulty === "") {
+      errors.difficulty = "Difficulty is mandatory";
+    }
+
+    if (questionType === "") {
+      errors.questionType = "Question Type is mandatory";
+    }
+
+    if (!questionCount) {
+      errors.questionCount = "Number of Questions is mandatory";
+    }
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
       return false;
     }
-    if (category === "" || difficulty === "") {
-      setError("Selecting Category and Difficulty is mandatory");
+
+    const result = await requestQuestions();
+
+    if (!result?.success) {
+      setError(
+        result?.message ||
+          "Unable to load questions. Please try again before starting the quiz."
+      );
       return false;
     }
-    requestQuestions();
+
     navigate("/quiz");
+  };
+  const handleChallenge = () => {
+    navigate("/challenge/create");
+  };
+  const handleJoinChallenge = (event) => {
+    event.preventDefault();
+    const normalizedCode = challengeCode.trim().toUpperCase();
+
+    if (!normalizedCode) {
+      setChallengeCodeError("Challenge code is required");
+      return;
+    }
+
+    if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+      setChallengeCodeError("Enter a valid 6 character challenge code");
+      return;
+    }
+
+    navigate(`/challenge/${normalizedCode}`);
   };
   const handleTogglePopover = () => {
     setIsOpen(!isOpen);
   };
+
+  if (setupVersionLoading) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div className="h-12 animate-pulse rounded bg-gray-300 dark:bg-gray-600" key={index} />
+          ))}
+        </div>
+        <div className="hidden lg:block">
+          <div className="h-72 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
+        </div>
+      </div>
+    );
+  }
+
+  if (setupVersion === "V2") {
+    return (
+      <QuizSetupV2
+        requestQuestions={requestQuestions}
+        name={name}
+        category={category}
+        difficulty={difficulty}
+        questionType={questionType}
+        questionCount={questionCount}
+        enableTimer={enableTimer}
+        timerMode={timerMode}
+        totalDuration={totalDuration}
+        timePerQuestion={timePerQuestion}
+        Categories={Categories}
+        setName={setName}
+        setCategoty={setCategoty}
+        setDifficulty={setDifficulty}
+        setQuestionType={setQuestionType}
+        setQuestionCount={setQuestionCount}
+        setEnableTimer={setEnableTimer}
+        setTimerMode={setTimerMode}
+        setTotalDuration={setTotalDuration}
+        setTimePerQuestion={setTimePerQuestion}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col md:flex-row lg:flex-row">
-      <div className="w-full md:w-1/2 lg:w-1/2">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+      <div className="w-full lg:w-1/2">
         {/* <h1 className="font-medium text-2xl">Quiz Settings</h1> */}
         <QuizDetails
           name={name}
           error={error}
           setName={setName}
+          formErrors={formErrors}
+          setFormErrors={setFormErrors}
           category={category}
           difficulty={difficulty}
+          questionType={questionType}
+          questionCount={questionCount}
           Categories={Categories}
           setCategoty={setCategoty}
           setDifficulty={setDifficulty}
+          setQuestionType={setQuestionType}
+          setQuestionCount={setQuestionCount}
           enableTimer={enableTimer}
           setEnableTimer={setEnableTimer}
           Popper={Popper}
@@ -57,12 +187,49 @@ export default function Home({
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           handleSubmit={handleSubmit}
+          onChallenge={handleChallenge}
           handleTogglePopover={handleTogglePopover}
           duration={5000}
           onHide={() => setError("")}
         />
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="app-muted-text text-xs font-semibold uppercase">
+            Have a challenge code?
+          </span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+        <form
+          className="mx-auto max-w-md text-center"
+          onSubmit={handleJoinChallenge}
+        >
+          <label className="app-label mb-3 block text-sm font-medium">
+            Join Challenge by Code
+          </label>
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <input
+              className="app-input h-12 w-full rounded border border-gray-300 px-4 text-center text-sm font-semibold uppercase tracking-[0.35em] outline-none sm:flex-1"
+              maxLength={6}
+              placeholder="AB7K92"
+              value={challengeCode}
+              onChange={(event) => {
+                setChallengeCode(event.target.value.toUpperCase());
+                setChallengeCodeError("");
+              }}
+            />
+            <button
+              className="h-12 rounded bg-red-600 px-6 text-white transition hover:bg-red-800"
+              type="submit"
+            >
+              Join
+            </button>
+          </div>
+          {challengeCodeError && (
+            <p className="mt-2 text-sm text-red-600">{challengeCodeError}</p>
+          )}
+        </form>
       </div>
-      <div className="flex items-center justify-center w-full md:w-1/2 lg:w-1/2">
+      <div className="hidden w-full items-center justify-center lg:flex lg:w-1/2">
         <img className="rounded custom-quiz-image" src={quizMaze} alt="maze" />
       </div>
     </div>

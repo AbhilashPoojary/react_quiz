@@ -21,7 +21,8 @@ const Util = {
     if (
       file.type === "image/jpeg" ||
       file.type === "image/jpg" ||
-      file.type === "image/png"
+      file.type === "image/png" ||
+      file.type === "image/webp"
     ) {
       const data = new FormData();
       data.append("file", file);

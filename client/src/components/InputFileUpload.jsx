@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { X } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 
 export default function InputFileUpload({
   label,
@@ -7,9 +7,17 @@ export default function InputFileUpload({
   name,
   type,
   setValue,
-  value
+  value,
+  required,
+  error,
+  accept,
 }) {
   const inputRef = useRef(null);
+  const displayText = picLoading
+    ? "Processing and uploading..."
+    : value
+    ? "Edited profile image ready"
+    : "No image selected";
 
   const handleClearFile = () => {
     setValue(null);
@@ -23,9 +31,10 @@ export default function InputFileUpload({
     <div className="sm:col-span-2 mb-2 relative">
       <label
         htmlFor={name}
-        className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+        className="app-label block mb-2 text-sm font-medium text-gray-900"
       >
         {label}
+        {required && <span className="text-red-600"> *</span>}
         {picLoading && (
           <div role="status">
             <svg
@@ -50,17 +59,46 @@ export default function InputFileUpload({
       </label>
       <input
         ref={inputRef}
-        className="outline-none border border-gray-300 text-gray-900 text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+        className="sr-only"
+        id={name}
         name={name}
         type={type}
-        onChange={(e) => setValue(e.target.files[0])}
+        accept={accept}
+        onChange={(e) => {
+          setValue(e.target.files[0]);
+          e.target.value = "";
+        }}
       />
-      <div className="info-icon">
-        {value&&<X
-          className="text-gray-400 cursor-pointer"
-          onClick={handleClearFile}
-        />}
+      <div className="app-input flex w-full items-center justify-between gap-3 rounded border border-gray-300 p-2.5 text-sm">
+        <button
+          className="inline-flex items-center gap-2 rounded bg-red-600 px-3 py-2 text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-70"
+          disabled={picLoading}
+          type="button"
+          onClick={() => inputRef.current?.click()}
+        >
+          <ImagePlus size={16} />
+          Choose Image
+        </button>
+        <span
+          className={`min-w-0 flex-1 truncate text-right ${
+            value ? "app-strong-text font-medium" : "app-muted-text"
+          }`}
+        >
+          {displayText}
+        </span>
+        {value && (
+          <button
+            aria-label="Remove profile image"
+            className="rounded p-1 text-gray-400 transition hover:text-red-600"
+            disabled={picLoading}
+            type="button"
+            onClick={handleClearFile}
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   );
 }

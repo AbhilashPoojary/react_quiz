@@ -28,10 +28,29 @@ const handleSessionExpired = () => {
   }, 1500);
 };
 
+const handlePasswordExpired = (payload = {}) => {
+  const message = payload.message || "Your password has expired.";
+  localStorage.setItem("passwordExpiredMessage", message);
+  window.dispatchEvent(
+    new CustomEvent("password-expired", {
+      detail: {
+        message,
+        passwordExpiry: payload.passwordExpiry,
+      },
+    })
+  );
+
+  if (window.location.pathname !== "/change-password") {
+    window.location.href = "/change-password";
+  }
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("jwtToken");
   const protectedPath =
-    config.url?.startsWith("/api") || config.url?.startsWith("/auth/logout");
+    config.url?.startsWith("/api") ||
+    config.url?.startsWith("/auth/logout") ||
+    config.url?.startsWith("/auth/change-password");
 
   if (token && protectedPath) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -43,7 +62,9 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401) {
+    if (error?.response?.data?.code === "PASSWORD_EXPIRED") {
+      handlePasswordExpired(error.response.data);
+    } else if (error?.response?.status === 401) {
       handleSessionExpired();
     }
 

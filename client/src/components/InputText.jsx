@@ -8,24 +8,29 @@ export default function InputText({
   placeholder,
   type,
   disabled,
+  required,
+  error,
+  containerClassName = "sm:col-span-2 mb-3",
 }) {
   return (
-    <div className="sm:col-span-2 mb-3">
+    <div className={containerClassName}>
       <label
         htmlFor={name}
-        className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
+        className="app-label block mb-1 text-sm font-medium text-gray-900"
       >
         {label}
+        {required && <span className="text-red-600"> *</span>}
       </label>
       <input
         type={type}
         name={name}
-        className="mb-1 outline-none border border-gray-300 text-gray-900 text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+        className="app-input mb-1 outline-none border border-gray-300 text-gray-900 text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
         placeholder={placeholder || `Please enter the ${name}`}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
       />
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
