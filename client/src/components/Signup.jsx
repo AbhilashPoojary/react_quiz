@@ -232,7 +232,10 @@ export default function Signup({ switchToSignIn, setAlign }) {
         type: "success",
         message: messageState || "Registration successful",
       });
-      switchToSignIn();
+      switchToSignIn({
+        type: "success",
+        message: messageState || "Registration successful",
+      });
     }
   }, [successState, messageState, switchToSignIn]);
 
