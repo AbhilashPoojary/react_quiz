@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Copy, Swords, Trash2 } from "lucide-react";
+import { Copy, Share2, Swords, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ConfirmPopup from "./ConfirmPopup";
 import Dropdown from "./Dropdown";
 import ErrorNotification from "./ErrorNotification";
 import { CustomCheckbox, CustomRadio } from "./CustomSelectionControls";
 import apiClient from "../utils/apiClient";
+import { getChallengeUrl, shareChallenge } from "../utils/shareChallenge";
 import quizMaze from "../assets/homeimage.jpg";
 
 const difficultyOptions = [
@@ -65,6 +66,7 @@ export default function QuizSetupV2({
   const [createdChallenge, setCreatedChallenge] = useState(null);
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [notice, setNotice] = useState({ type: "error", message: "" });
 
   useEffect(() => {
     const currentUserName = JSON.parse(localStorage.getItem("currentUser"))
@@ -179,6 +181,27 @@ export default function QuizSetupV2({
 
   const copyText = async (value) => {
     await navigator.clipboard.writeText(value);
+    setNotice({ type: "success", message: "Copied to clipboard." });
+  };
+
+  const handleShareChallenge = async () => {
+    try {
+      const result = await shareChallenge(createdChallenge.challengeCode);
+
+      if (result.status === "copied") {
+        setNotice({
+          type: "success",
+          message: "Challenge invitation copied to clipboard.",
+        });
+      } else if (result.status === "shared") {
+        setNotice({ type: "success", message: "Challenge shared." });
+      }
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message: "Unable to share challenge. Please copy the link manually.",
+      });
+    }
   };
 
   const deleteChallenge = async () => {
@@ -211,7 +234,16 @@ export default function QuizSetupV2({
           onConfirm={deleteChallenge}
           onCancel={() => setShowDeleteConfirm(false)}
         />
-        <ErrorNotification error={error} duration={5000} onHide={() => setError("")} />
+        <ErrorNotification
+          error={error}
+          message={notice.message}
+          type={notice.message ? notice.type : "error"}
+          duration={5000}
+          onHide={() => {
+            setError("");
+            setNotice({ type: "error", message: "" });
+          }}
+        />
         <div className="mb-5">
           <p className="app-muted-text text-sm font-medium">Welcome back,</p>
           <h2 className="app-strong-text text-xl font-semibold">{name || "Player"}</h2>
@@ -381,7 +413,7 @@ export default function QuizSetupV2({
               </button>
             </div>
             <p className="app-muted-text mt-3 break-all text-sm">
-              {createdChallenge.shareUrl}
+              {getChallengeUrl(createdChallenge.challengeCode)}
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button
@@ -394,6 +426,14 @@ export default function QuizSetupV2({
               <button
                 type="button"
                 className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600"
+                onClick={handleShareChallenge}
+              >
+                <Share2 size={16} />
+                Share Challenge
+              </button>
+              <button
+                type="button"
+                className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 sm:col-span-2"
                 disabled={challengeLoading}
                 onClick={() => setShowDeleteConfirm(true)}
               >

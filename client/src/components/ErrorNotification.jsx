@@ -44,7 +44,7 @@ export default function ErrorNotification({
   const style = variantStyles[type] || variantStyles.error;
 
   return (
-    <div className="error-message show absolute top-2 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="error-message show absolute top-2 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 transform">
       <div
         className={`flex items-center p-2 text-sm border rounded-lg ${style.container}`}
       >

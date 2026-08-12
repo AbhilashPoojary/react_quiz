@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Copy, Swords, Trash2 } from "lucide-react";
+import { Copy, Share2, Swords, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Categories from "../data/Categories";
 import Dropdown from "../components/Dropdown";
 import ConfirmPopup from "../components/ConfirmPopup";
 import ErrorNotification from "../components/ErrorNotification";
 import apiClient from "../utils/apiClient";
+import { getChallengeUrl, shareChallenge } from "../utils/shareChallenge";
 
 const difficultyOptions = [
   { category: "Easy", value: "easy" },
@@ -50,6 +51,26 @@ export default function ChallengeCreate({ setAlign }) {
   const copyText = async (value, label) => {
     await navigator.clipboard.writeText(value);
     setNotification({ type: "success", message: `${label} copied` });
+  };
+
+  const handleShareChallenge = async () => {
+    try {
+      const result = await shareChallenge(createdChallenge.challengeCode);
+
+      if (result.status === "copied") {
+        setNotification({
+          type: "success",
+          message: "Challenge invitation copied to clipboard.",
+        });
+      } else if (result.status === "shared") {
+        setNotification({ type: "success", message: "Challenge shared." });
+      }
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: "Unable to share challenge. Please copy the link manually.",
+      });
+    }
   };
 
   const handleCreate = async (event) => {
@@ -198,12 +219,14 @@ export default function ChallengeCreate({ setAlign }) {
           <div className="mt-4 rounded border p-4">
             <p className="app-muted-text text-sm">Share Link</p>
             <p className="app-strong-text mt-1 break-all">
-              {createdChallenge.shareUrl}
+              {getChallengeUrl(createdChallenge.challengeCode)}
             </p>
             <button
               className="analysis-outline-button mt-3 inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 transition"
               type="button"
-              onClick={() => copyText(createdChallenge.shareUrl, "Link")}
+              onClick={() =>
+                copyText(getChallengeUrl(createdChallenge.challengeCode), "Link")
+              }
             >
               <Copy size={16} />
               Copy Link
@@ -218,6 +241,14 @@ export default function ChallengeCreate({ setAlign }) {
               }
             >
               Play My Challenge
+            </button>
+            <button
+              className="analysis-outline-button inline-flex w-full items-center justify-center gap-2 rounded border border-red-600 p-3 text-red-600 transition"
+              type="button"
+              onClick={handleShareChallenge}
+            >
+              <Share2 size={16} />
+              Share Challenge
             </button>
             <button
               className="analysis-outline-button w-full rounded border border-red-600 p-3 text-red-600 transition"
