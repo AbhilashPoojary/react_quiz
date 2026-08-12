@@ -246,8 +246,8 @@ export default function ResultTable({ data, itemsPerPage, dateSort = "newest" })
   }, [data, dateSort, columnFilters]);
   return (
     <>
-      <div className="result-table">
-        <table className="app-table w-full table-fixed border text-left text-sm text-gray-500">
+      <div className="result-table w-full overflow-x-auto pb-2">
+        <table className="app-table min-w-[920px] table-fixed border text-left text-sm text-gray-500">
           <thead className="app-table-head text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
               {columns.map(renderHeader)}

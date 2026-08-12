@@ -175,7 +175,7 @@ export default function Result({
           </div>
         </div>
 
-        <div className="relative overflow-x-auto mt-2">
+        <div className="relative mt-2 w-full max-w-full overflow-x-auto">
           <ResultTable data={all} itemsPerPage={5} dateSort={dateSort} />
         </div>
       </div>
