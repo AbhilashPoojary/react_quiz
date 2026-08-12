@@ -5,7 +5,7 @@ import {
   Bell,
   CalendarDays,
   LogOut,
-  PlusCircle,
+  Mail,
   Users,
 } from "lucide-react";
 
@@ -26,10 +26,6 @@ export default function AdminLayout({ logoutUser }) {
             <BarChart3 size={18} />
             Dashboard
           </NavLink>
-          <NavLink className={navLinkClass} to="/admin/events/create">
-            <PlusCircle size={18} />
-            Create Event
-          </NavLink>
           <NavLink className={navLinkClass} to="/admin/events" end>
             <CalendarDays size={18} />
             Manage Events
@@ -41,6 +37,10 @@ export default function AdminLayout({ logoutUser }) {
           <NavLink className={navLinkClass} to="/admin/notifications" end>
             <Bell size={18} />
             Notifications
+          </NavLink>
+          <NavLink className={navLinkClass} to="/admin/email-templates">
+            <Mail size={18} />
+            Email Templates
           </NavLink>
           <button
             type="button"

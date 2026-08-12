@@ -39,8 +39,9 @@ export default function QuizComponent({
   const [showConfirm, setShowConfirm] = useState(false);
   const timeoutHandledRef = useRef(false);
   const nextQuestionRef = useRef(nextQuestion);
+  const recordAnswerRef = useRef(recordAnswer);
+  const finishQuizWithUnansweredRef = useRef(finishQuizWithUnanswered);
   const questionStartedAtRef = useRef(Date.now());
-  console.log(quizData.correct_answer);
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -54,6 +55,14 @@ export default function QuizComponent({
   useEffect(() => {
     nextQuestionRef.current = nextQuestion;
   }, [nextQuestion]);
+
+  useEffect(() => {
+    recordAnswerRef.current = recordAnswer;
+  }, [recordAnswer]);
+
+  useEffect(() => {
+    finishQuizWithUnansweredRef.current = finishQuizWithUnanswered;
+  }, [finishQuizWithUnanswered]);
 
   const checkAnswer = (item, index) => {
     let updatedBg = [...bg];
@@ -72,7 +81,7 @@ export default function QuizComponent({
       : Math.round((Date.now() - questionStartedAtRef.current) / 1000);
     setTimeConsumed((prevstate) => prevstate + elapsedSeconds);
     setTimeout(() => {
-      nextQuestion();
+      nextQuestionRef.current();
       if (effectiveTimerMode === "PER_QUESTION") {
         setCounter(questionTimeLimit);
       }
@@ -115,7 +124,7 @@ export default function QuizComponent({
     timeoutHandledRef.current = true;
 
     if (effectiveTimerMode === "TOTAL") {
-      finishQuizWithUnanswered?.(totalTimeLimit);
+      finishQuizWithUnansweredRef.current?.(totalTimeLimit);
       return undefined;
     }
 
@@ -125,7 +134,7 @@ export default function QuizComponent({
       updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
       return updatedBg;
     });
-    recordAnswer("");
+    recordAnswerRef.current("");
     setTimeConsumed((prevstate) => prevstate + questionTimeLimit);
 
     const timeout = setTimeout(() => {
@@ -137,10 +146,8 @@ export default function QuizComponent({
     counter,
     enableTimer,
     effectiveTimerMode,
-    finishQuizWithUnanswered,
     quizData?.correctAnswerIndex,
     questionTimeLimit,
-    recordAnswer,
     setTimeConsumed,
     totalTimeLimit,
   ]);

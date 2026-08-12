@@ -4,7 +4,11 @@ const https = require("https");
 const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
 const User = require("../Modals/User");
-const { sendPasswordResetEmail } = require("../utils/email");
+const {
+  hasEmailConfig,
+  verifyTransporter,
+} = require("../utils/email");
+const { sendTemplateEmail } = require("../services/emailTemplateService");
 const { getPasswordExpiryInfo } = require("../utils/passwordExpiry");
 
 dotenv.config();
@@ -162,6 +166,10 @@ const forgotPassword = async (req, res) => {
     const email = normalizeEmail(req.body.email);
 
     if (email) {
+      if (hasEmailConfig()) {
+        await verifyTransporter();
+      }
+
       const user = await User.findOne({ email });
 
       if (user) {
@@ -178,16 +186,46 @@ const forgotPassword = async (req, res) => {
         const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
         const resetUrl = `${clientUrl.replace(/\/$/, "")}/reset-password/${resetToken}`;
 
-        await sendPasswordResetEmail({
+        await sendTemplateEmail({
+          templateKey: "FORGOT_PASSWORD",
           to: user.email,
-          resetUrl,
+          variables: {
+            userName: user.name || "Quiz Playground user",
+            resetLink: resetUrl,
+            expiryMinutes: 15,
+          },
         });
       }
     }
 
     res.status(200).json({ message: PASSWORD_RESET_SUCCESS_MESSAGE });
   } catch (error) {
-    res.status(200).json({ message: PASSWORD_RESET_SUCCESS_MESSAGE });
+    console.error("[password-reset] Unable to send reset email:", error);
+
+    const email = normalizeEmail(req.body.email);
+
+    if (email) {
+      try {
+        await User.findOneAndUpdate(
+          { email },
+          {
+            $set: {
+              resetPasswordToken: null,
+              resetPasswordExpires: null,
+            },
+          }
+        );
+      } catch (cleanupError) {
+        console.error(
+          "[password-reset] Unable to clear reset token after email failure:",
+          cleanupError
+        );
+      }
+    }
+
+    res.status(500).json({
+      error: "Unable to send password reset email. Please try again later.",
+    });
   }
 };
 

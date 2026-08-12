@@ -11,6 +11,11 @@ const {
   bulkDeactivateUsers,
   createAdminNotification,
   listAdminNotifications,
+  listEmailTemplates,
+  getEmailTemplate,
+  updateEmailTemplate,
+  previewEmailTemplate,
+  sendEmailTemplateTest,
   listEvents,
   getEvent,
   createEvent,
@@ -39,6 +44,11 @@ AdminRouter.delete("/users/:id", softDeleteUser);
 AdminRouter.patch("/users/:id/restore", restoreUser);
 AdminRouter.post("/notifications", createAdminNotification);
 AdminRouter.get("/notifications", listAdminNotifications);
+AdminRouter.get("/email-templates", listEmailTemplates);
+AdminRouter.get("/email-templates/:id", getEmailTemplate);
+AdminRouter.put("/email-templates/:id", updateEmailTemplate);
+AdminRouter.post("/email-templates/:id/preview", previewEmailTemplate);
+AdminRouter.post("/email-templates/:id/test", sendEmailTemplateTest);
 AdminRouter.get("/events", listEvents);
 AdminRouter.post("/events", createEvent);
 AdminRouter.get("/events/:id", getEvent);

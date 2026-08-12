@@ -42,6 +42,8 @@ import AdminEditEvent from "./pages/admin/AdminEditEvent";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminUserDetails from "./pages/admin/AdminUserDetails";
 import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
+import AdminEmailTemplateDetails from "./pages/admin/AdminEmailTemplateDetails";
 
 function App() {
   const [name, setName] = useState("");
@@ -574,6 +576,15 @@ function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="users/:userId" element={<AdminUserDetails />} />
             <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="email-templates" element={<AdminEmailTemplates />} />
+            <Route
+              path="email-templates/:templateId"
+              element={<AdminEmailTemplateDetails mode="view" />}
+            />
+            <Route
+              path="email-templates/:templateId/edit"
+              element={<AdminEmailTemplateDetails mode="edit" />}
+            />
           </Route>
         </Routes>
       </main>

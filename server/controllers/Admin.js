@@ -10,6 +10,13 @@ const AdminNotification = require("../Modals/AdminNotification");
 const UserNotification = require("../Modals/UserNotification");
 const User = require("../Modals/User");
 const {
+  getTemplateById,
+  listTemplates,
+  previewTemplate,
+  sendTemplateTestEmail,
+  updateTemplate,
+} = require("../services/emailTemplateService");
+const {
   buildEventEndAt,
   buildEventSchedule,
   getEffectiveEventStatus,
@@ -884,6 +891,93 @@ const listAdminNotifications = async (req, res) => {
   }
 };
 
+const listEmailTemplates = async (req, res) => {
+  try {
+    const templates = await listTemplates({
+      search: req.query.search || "",
+      status: req.query.status || "All",
+    });
+
+    res.status(200).json(templates);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getEmailTemplate = async (req, res) => {
+  try {
+    const template = await getTemplateById(req.params.id);
+
+    if (!template) {
+      return res.status(404).json({ error: "Email template not found" });
+    }
+
+    res.status(200).json(template);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateEmailTemplate = async (req, res) => {
+  try {
+    const result = await updateTemplate({
+      id: req.params.id,
+      payload: req.body,
+      updatedBy: req.user.userId,
+    });
+
+    if (result.error) {
+      return res.status(result.status || 400).json({ error: result.error });
+    }
+
+    res.status(200).json(result.template);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const previewEmailTemplate = async (req, res) => {
+  try {
+    const result = await previewTemplate({
+      id: req.params.id,
+      payload: req.body,
+      variables: req.body?.variables,
+    });
+
+    if (result.error) {
+      return res.status(result.status || 400).json({ error: result.error });
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const sendEmailTemplateTest = async (req, res) => {
+  try {
+    const testEmail = String(req.body?.email || "").trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+      return res.status(400).json({ error: "Enter a valid test email" });
+    }
+
+    const result = await sendTemplateTestEmail({
+      id: req.params.id,
+      to: testEmail,
+    });
+
+    if (result.error) {
+      return res.status(result.status || 400).json({ error: result.error });
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("[email-template-test] Unable to send test email:", error);
+    res.status(500).json({ error: "Unable to send test email" });
+  }
+};
+
 const unpublishEvent = async (req, res) => {
   try {
     const reason = String(req.body?.reason || "").trim();
@@ -950,6 +1044,11 @@ module.exports = {
   bulkDeactivateUsers,
   createAdminNotification,
   listAdminNotifications,
+  listEmailTemplates,
+  getEmailTemplate,
+  updateEmailTemplate,
+  previewEmailTemplate,
+  sendEmailTemplateTest,
   listEvents,
   getEvent,
   createEvent,

@@ -88,6 +88,27 @@ const getEffectiveStatus = (challenge) => {
   return challenge.status;
 };
 
+const getActiveParticipantIds = (challenge) => {
+  if (!challenge) {
+    return [];
+  }
+
+  const creatorId = String(challenge.createdBy || "");
+  const uniqueParticipantIds = [];
+
+  [creatorId, ...(challenge.participants || [])].forEach((participantId) => {
+    const normalizedId = String(participantId || "");
+
+    if (normalizedId && !uniqueParticipantIds.includes(normalizedId)) {
+      uniqueParticipantIds.push(normalizedId);
+    }
+  });
+
+  const opponentId = uniqueParticipantIds.find((item) => item !== creatorId);
+
+  return opponentId ? [creatorId, opponentId] : [creatorId].filter(Boolean);
+};
+
 const normalizeQuestions = (questions) =>
   questions.map((item, index) => ({
     questionOrder: index + 1,
@@ -105,11 +126,12 @@ const sanitizeChallenge = async (challenge, currentUserId) => {
   const attempts = await ChallengeAttempt.find({
     challengeId: challenge._id.toString(),
   }).lean();
-  const participantIds = challenge.participants || [];
+  const participantIds = getActiveParticipantIds(challenge);
   const participantUsers = await User.find({ _id: { $in: participantIds } })
     .select("name email")
     .lean();
   const completedUserIds = new Set(attempts.map((item) => item.userId));
+  const normalizedCurrentUserId = String(currentUserId || "");
 
   return {
     _id: challenge._id,
@@ -130,8 +152,10 @@ const sanitizeChallenge = async (challenge, currentUserId) => {
       hasCompleted: completedUserIds.has(user._id.toString()),
     })),
     participantCount: participantIds.length,
-    hasJoined: participantIds.includes(currentUserId),
-    hasCompleted: completedUserIds.has(currentUserId),
+    hasJoined: participantIds.includes(normalizedCurrentUserId),
+    hasCompleted:
+      participantIds.includes(normalizedCurrentUserId) &&
+      completedUserIds.has(normalizedCurrentUserId),
   };
 };
 
@@ -150,7 +174,9 @@ const assertPlayable = async (challenge, userId) => {
     return "This challenge is closed";
   }
 
-  if (!challenge.participants.includes(userId)) {
+  const activeParticipantIds = getActiveParticipantIds(challenge);
+
+  if (!activeParticipantIds.includes(String(userId || ""))) {
     return "Please accept the challenge before playing";
   }
 
@@ -311,23 +337,42 @@ const acceptChallenge = async (req, res) => {
       return res.status(400).json({ error: "This challenge has expired" });
     }
 
+    if (effectiveStatus === "CANCELLED" || effectiveStatus === "COMPLETED") {
+      return res.status(400).json({ error: "This challenge is closed" });
+    }
+
     if (challenge.createdBy === req.user.userId) {
       return res.status(400).json({ error: "You cannot join your own challenge" });
     }
 
-    if (challenge.participants.includes(req.user.userId)) {
+    const activeParticipantIds = getActiveParticipantIds(challenge);
+
+    if (activeParticipantIds.includes(req.user.userId)) {
       return res.status(200).json(await sanitizeChallenge(challenge, req.user.userId));
     }
 
-    if (challenge.participants.length >= 2) {
+    if (activeParticipantIds.length >= 2) {
       return res.status(400).json({ error: "This challenge already has an opponent" });
     }
 
-    challenge.participants.push(req.user.userId);
-    challenge.status = "IN_PROGRESS";
-    await challenge.save();
+    const updatedChallenge = await Challenge.findOneAndUpdate(
+      {
+        _id: challenge._id,
+        participants: { $ne: req.user.userId },
+        "participants.1": { $exists: false },
+      },
+      {
+        $addToSet: { participants: req.user.userId },
+        $set: { status: "IN_PROGRESS" },
+      },
+      { new: true }
+    );
 
-    res.status(200).json(await sanitizeChallenge(challenge, req.user.userId));
+    if (!updatedChallenge) {
+      return res.status(400).json({ error: "This challenge already has an opponent" });
+    }
+
+    res.status(200).json(await sanitizeChallenge(updatedChallenge, req.user.userId));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -449,12 +494,14 @@ const submitChallenge = async (req, res) => {
       completedAt: new Date(),
     }).save();
 
+    const activeParticipantIds = getActiveParticipantIds(challenge);
     const attemptCount = await ChallengeAttempt.countDocuments({
       challengeId: challenge._id.toString(),
+      userId: { $in: activeParticipantIds },
     });
 
-    if (attemptCount >= Math.min(2, challenge.participants.length)) {
-      challenge.status = challenge.participants.length >= 2 ? "COMPLETED" : challenge.status;
+    if (activeParticipantIds.length >= 2 && attemptCount >= 2) {
+      challenge.status = "COMPLETED";
       await challenge.save();
     }
 
@@ -521,16 +568,21 @@ const getChallengeResults = async (req, res) => {
       return res.status(404).json({ error: "Challenge not found" });
     }
 
-    if (!challenge.participants.includes(req.user.userId)) {
+    const activeParticipantIds = getActiveParticipantIds(challenge);
+
+    if (!activeParticipantIds.includes(req.user.userId)) {
       return res.status(403).json({ error: "You are not part of this challenge" });
     }
 
     const attempts = await ChallengeAttempt.find({
       challengeId: challenge._id.toString(),
+      userId: { $in: activeParticipantIds },
     })
       .sort({ completedAt: 1 })
       .lean();
-    const userIds = [...new Set([...challenge.participants, ...attempts.map((item) => item.userId)])];
+    const userIds = [
+      ...new Set([...activeParticipantIds, ...attempts.map((item) => item.userId)]),
+    ];
     const users = await User.find({ _id: { $in: userIds } })
       .select("name email")
       .lean();
@@ -538,7 +590,7 @@ const getChallengeResults = async (req, res) => {
       acc[user._id.toString()] = user;
       return acc;
     }, {});
-    const bothCompleted = attempts.length >= 2;
+    const bothCompleted = activeParticipantIds.length >= 2 && attempts.length >= 2;
     const effectiveStatus = getEffectiveStatus(challenge);
     const canShowAnalysis = bothCompleted || ["COMPLETED", "CANCELLED", "EXPIRED"].includes(effectiveStatus);
     const winner = getWinner(attempts);
@@ -565,7 +617,7 @@ const getChallengeResults = async (req, res) => {
       canShowAnalysis,
       currentUserAttempt,
       attempts: sanitizedAttempts,
-      participants: challenge.participants.map((userId) => ({
+      participants: activeParticipantIds.map((userId) => ({
         userId,
         name: userMap[userId]?.name || "Player",
         email: userMap[userId]?.email || "",

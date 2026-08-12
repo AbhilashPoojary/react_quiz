@@ -19,8 +19,20 @@ const {
   getEventResult,
 } = require("../controllers/Result");
 const verifyToken = require("../middleware/auth");
+const {
+  getUniqueExistingQuestions,
+} = require("../services/questionExtractionService");
 
 const ResultRouter = express.Router();
+
+ResultRouter.get("/questions/unique-existing", async (req, res) => {
+  try {
+    const payload = await getUniqueExistingQuestions();
+    res.status(200).json(payload);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 ResultRouter.get("/questions", verifyToken, getQuestions);
 ResultRouter.post("/score", verifyToken, result);

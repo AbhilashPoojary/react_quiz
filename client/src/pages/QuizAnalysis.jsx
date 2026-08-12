@@ -224,6 +224,7 @@ function AnswerCard({ item, index, expanded, onToggle }) {
   const statusClass = item.isCorrect
     ? "analysis-status-correct"
     : "analysis-status-wrong";
+  const questionText = decodeText(item.question);
 
   return (
     <article className="leaderboard-card overflow-hidden rounded border shadow-sm">
@@ -235,7 +236,9 @@ function AnswerCard({ item, index, expanded, onToggle }) {
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="app-strong-text font-semibold">Question {index + 1}</h2>
+            <span className="app-muted-text text-xs font-semibold uppercase">
+              Question {index + 1}
+            </span>
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClass}`}
             >
@@ -243,6 +246,9 @@ function AnswerCard({ item, index, expanded, onToggle }) {
               {item.isCorrect ? "Correct" : "Wrong"}
             </span>
           </div>
+          <h2 className="app-strong-text mt-1 font-semibold">
+            {questionText}
+          </h2>
           <p className="app-muted-text mt-1 truncate text-xs">
             {getCategoryName(item.category)} • {item.difficulty || "Difficulty not available"}
           </p>
@@ -255,10 +261,6 @@ function AnswerCard({ item, index, expanded, onToggle }) {
 
       {expanded && (
         <div className="border-t px-4 py-4">
-          <p className="app-strong-text mb-4 font-medium">
-            {decodeText(item.question)}
-          </p>
-
           <div className="space-y-2">
             {(item.options || []).map((option, optionIndex) => {
               const normalizedOption = normalizeAnswerValue(option);
