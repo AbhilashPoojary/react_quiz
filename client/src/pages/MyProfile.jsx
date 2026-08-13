@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Edit3, UserCircle, X } from "lucide-react";
+import { Edit3, KeyRound, UserCircle, X } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../utils/apiClient";
@@ -12,10 +12,12 @@ import CategoryRadarChart from "../components/CategoryRadarChart";
 import Dropdown from "../components/Dropdown";
 import ErrorNotification from "../components/ErrorNotification";
 import InputFileUpload from "../components/InputFileUpload";
+import InputPassword from "../components/InputPassword";
 import InputText from "../components/InputText";
 import ProfileImageEditor from "../components/ProfileImageEditor";
 import Util from "../components/util";
-import { UPDATE_CURRENT_USER } from "../slice/authSlice";
+import { UPDATE_CURRENT_USER, UPDATE_PASSWORD_EXPIRY } from "../slice/authSlice";
+import { validateField, validateFile } from "../utils/fieldValidation";
 
 const emptyProfile = {
   user: {},
@@ -31,8 +33,27 @@ const emptyProfile = {
 };
 
 const allowedProfileImageTypes = ["image/jpeg", "image/png", "image/webp"];
-const maxProfileImageSize = 5 * 1024 * 1024;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const nameRules = { required: true, minLength: 3, maxLength: 50 };
+const emailRules = {
+  required: true,
+  pattern: emailPattern,
+  patternMessage: "Please enter a valid email",
+};
+const passwordRules = {
+  required: true,
+  minLength: 8,
+  uppercase: true,
+  lowercase: true,
+  number: true,
+  special: true,
+};
+const profilePicRules = {
+  required: true,
+  accept: allowedProfileImageTypes,
+  acceptMessage: "Please select a JPEG, PNG, or WebP image",
+  maxSizeMb: 5,
+};
 
 const formatDate = (date) => {
   if (!date) {
@@ -126,6 +147,14 @@ export default function MyProfile({ setAlign }) {
   });
   const [formErrors, setFormErrors] = useState({});
   const [savingProfile, setSavingProfile] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
   const [picLoading, setPicLoading] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
   const [notification, setNotification] = useState({
@@ -192,6 +221,21 @@ export default function MyProfile({ setAlign }) {
     setFormErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
+  const updatePasswordField = (key, value) => {
+    setPasswordForm((prev) => ({ ...prev, [key]: value }));
+    setPasswordErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const closePasswordReset = () => {
+    setPasswordForm({
+      currentPassword: "",
+      password: "",
+      confirmPassword: "",
+    });
+    setPasswordErrors({});
+    setIsResettingPassword(false);
+  };
+
   const handleProfileImageSelect = async (file) => {
     setFormErrors((prev) => ({ ...prev, profilePicture: "" }));
 
@@ -204,19 +248,10 @@ export default function MyProfile({ setAlign }) {
       return;
     }
 
-    if (!allowedProfileImageTypes.includes(file.type)) {
-      setNotification({
-        type: "error",
-        message: "Please select a JPEG, PNG, or WebP image",
-      });
-      return;
-    }
-
-    if (file.size > maxProfileImageSize) {
-      setNotification({
-        type: "error",
-        message: "Profile image must be 5MB or smaller",
-      });
+    const profilePicError = validateFile(file, profilePicRules, "Profile pic");
+    if (profilePicError) {
+      setFormErrors((prev) => ({ ...prev, profilePicture: profilePicError }));
+      setNotification({ type: "error", message: profilePicError });
       return;
     }
 
@@ -251,8 +286,9 @@ export default function MyProfile({ setAlign }) {
     const name = editForm.name.trim();
     const email = editForm.email.trim().toLowerCase();
 
-    if (!name) {
-      errors.name = "Name is mandatory";
+    const nameError = validateField(name, nameRules, "Name");
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (!email) {
@@ -268,8 +304,13 @@ export default function MyProfile({ setAlign }) {
       errors.email = "Email is already registered";
     }
 
-    if (!editForm.profilePicture) {
-      errors.profilePicture = "Profile pic is mandatory";
+    const profilePicError = validateFile(
+      editForm.profilePicture,
+      profilePicRules,
+      "Profile pic"
+    );
+    if (profilePicError) {
+      errors.profilePicture = profilePicError;
     }
 
     setFormErrors(errors);
@@ -305,6 +346,59 @@ export default function MyProfile({ setAlign }) {
       });
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleResetPassword = async (event) => {
+    event.preventDefault();
+    const errors = {};
+
+    if (!passwordForm.currentPassword.trim()) {
+      errors.currentPassword = "Current Password is mandatory";
+    }
+
+    const passwordError = validateField(
+      passwordForm.password,
+      passwordRules,
+      "New Password"
+    );
+    if (passwordError) {
+      errors.password = passwordError;
+    }
+
+    if (!passwordForm.confirmPassword.trim()) {
+      errors.confirmPassword = "Confirm Password is mandatory";
+    } else if (passwordForm.password !== passwordForm.confirmPassword) {
+      errors.confirmPassword = "Passwords should match";
+    }
+
+    setPasswordErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      const response = await apiClient.post("/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        password: passwordForm.password,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+
+      dispatch(UPDATE_PASSWORD_EXPIRY(response.data?.passwordExpiry));
+      closePasswordReset();
+      setNotification({
+        type: "success",
+        message: response.data?.message || "Password reset successfully.",
+      });
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: error?.response?.data?.error || "Unable to reset password",
+      });
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -451,14 +545,24 @@ export default function MyProfile({ setAlign }) {
             </div>
           </div>
           {!isEditing && (
-            <button
-              className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
-              type="button"
-              onClick={startEditing}
-            >
-              <Edit3 size={16} />
-              Edit Profile
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+                type="button"
+                onClick={startEditing}
+              >
+                <Edit3 size={16} />
+                Edit Profile
+              </button>
+              <button
+                className="analysis-outline-button inline-flex items-center gap-2 rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                type="button"
+                onClick={() => setIsResettingPassword(true)}
+              >
+                <KeyRound size={16} />
+                Reset Password
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -512,7 +616,11 @@ export default function MyProfile({ setAlign }) {
                 setValue={(value) => updateEditField("name", value)}
                 type="text"
                 required
+                rules={nameRules}
                 error={formErrors.name}
+                onValidate={(message) =>
+                  setFormErrors((prev) => ({ ...prev, name: message }))
+                }
                 containerClassName="mb-0"
               />
               <InputText
@@ -522,7 +630,11 @@ export default function MyProfile({ setAlign }) {
                 setValue={(value) => updateEditField("email", value)}
                 type="text"
                 required
+                rules={emailRules}
                 error={formErrors.email}
+                onValidate={(message) =>
+                  setFormErrors((prev) => ({ ...prev, email: message }))
+                }
                 containerClassName="mb-0"
               />
               {editForm.email.trim() &&
@@ -558,6 +670,13 @@ export default function MyProfile({ setAlign }) {
                   required
                   error={formErrors.profilePicture}
                   previewUrl={editForm.profilePicture}
+                  rules={profilePicRules}
+                  onValidate={(message) =>
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      profilePicture: message,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -595,6 +714,84 @@ export default function MyProfile({ setAlign }) {
           onCancel={revokeSelectedImageUrl}
           onReplaceImage={handleProfileImageSelect}
         />
+      )}
+
+      {isResettingPassword && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center">
+          <form
+            className="confirm-card w-full max-w-lg rounded border p-5 shadow-xl sm:p-6"
+            onSubmit={handleResetPassword}
+          >
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="app-strong-text text-xl font-bold">
+                  Reset Password
+                </h2>
+                <p className="app-muted-text mt-1 text-sm">
+                  Update your account password
+                </p>
+              </div>
+              <button
+                aria-label="Close reset password"
+                className="rounded p-2 text-gray-500 transition hover:text-red-600"
+                disabled={savingPassword}
+                type="button"
+                onClick={closePasswordReset}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <InputPassword
+              name="profile current password"
+              label="Current Password"
+              value={passwordForm.currentPassword}
+              setValue={(value) => updatePasswordField("currentPassword", value)}
+              required
+              error={passwordErrors.currentPassword}
+            />
+            <InputPassword
+              name="profile new password"
+              label="New Password"
+              value={passwordForm.password}
+              setValue={(value) => updatePasswordField("password", value)}
+              required
+              rules={passwordRules}
+              error={passwordErrors.password}
+              onValidate={(message) =>
+                setPasswordErrors((prev) => ({ ...prev, password: message }))
+              }
+            />
+            <InputPassword
+              name="profile confirm password"
+              label="Confirm Password"
+              value={passwordForm.confirmPassword}
+              setValue={(value) =>
+                updatePasswordField("confirmPassword", value)
+              }
+              required
+              error={passwordErrors.confirmPassword}
+            />
+
+            <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">
+              <button
+                className="rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={savingPassword}
+                type="button"
+                onClick={closePasswordReset}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                disabled={savingPassword}
+                type="submit"
+              >
+                {savingPassword ? "Resetting..." : "Reset Password"}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 py-5 md:grid-cols-4">

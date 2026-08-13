@@ -24,6 +24,7 @@ export default function QuizDetails({
   enableTimer,
   setEnableTimer,
   formErrors = {},
+  nameRules,
   setFormErrors,
   referenceElementRef,
   handleTogglePopover,
@@ -45,7 +46,6 @@ export default function QuizDetails({
     }
   }, []);
 
-  console.log(error);
   return (
     <form className="mt-3" onSubmit={handleSubmit}>
       <ErrorNotification error={error} duration={duration} onHide={onHide} />
@@ -71,7 +71,11 @@ export default function QuizDetails({
             placeholder="Please enter the name"
             type="text"
             required
+            rules={nameRules}
             error={formErrors.name}
+            onValidate={(message) =>
+              setFormErrors?.((prev) => ({ ...prev, name: message }))
+            }
           />
         )}
         <div className="sm:col-span-2">

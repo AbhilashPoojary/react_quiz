@@ -6,6 +6,12 @@ import apiClient from "../utils/apiClient";
 
 const successMessage =
   "If an account exists for this email, a password reset link has been sent.";
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailRules = {
+  required: true,
+  pattern: emailPattern,
+  patternMessage: "Please enter a valid email",
+};
 
 export default function ForgotPassword({ setAlign }) {
   const [email, setEmail] = useState("");
@@ -20,15 +26,22 @@ export default function ForgotPassword({ setAlign }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!email.trim()) {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
       setError("Email is mandatory");
+      return;
+    }
+
+    if (!emailPattern.test(trimmedEmail)) {
+      setError("Please enter a valid email");
       return;
     }
 
     try {
       setLoading(true);
       setError("");
-      await apiClient.post("/api/auth/forgot-password", { email });
+      await apiClient.post("/api/auth/forgot-password", { email: trimmedEmail });
       setNotification({ type: "success", message: successMessage });
     } catch (error) {
       setNotification({
@@ -68,7 +81,9 @@ export default function ForgotPassword({ setAlign }) {
           }}
           type="text"
           required
+          rules={emailRules}
           error={error}
+          onValidate={setError}
         />
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button

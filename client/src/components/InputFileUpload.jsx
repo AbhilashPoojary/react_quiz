@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { ImagePlus, X } from "lucide-react";
+import { validateFile } from "../utils/fieldValidation";
 
 export default function InputFileUpload({
   label,
@@ -12,6 +13,8 @@ export default function InputFileUpload({
   error,
   accept,
   previewUrl,
+  rules,
+  onValidate,
 }) {
   const inputRef = useRef(null);
   const displayText = picLoading
@@ -21,6 +24,7 @@ export default function InputFileUpload({
     : "No image selected";
 
   const handleClearFile = () => {
+    onValidate?.(validateFile(null, rules, label));
     setValue(null);
 
     if (inputRef.current) {
@@ -63,7 +67,12 @@ export default function InputFileUpload({
         type={type}
         accept={accept}
         onChange={(e) => {
-          setValue(e.target.files[0]);
+          const file = e.target.files[0];
+          const validationError = validateFile(file, rules, label);
+          onValidate?.(validationError);
+          if (!validationError) {
+            setValue(file);
+          }
           e.target.value = "";
         }}
       />

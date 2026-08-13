@@ -14,6 +14,7 @@ const {
   getEffectiveEventStatus,
   withEffectiveEventStatus,
 } = require("../utils/eventStatus");
+const { validateName } = require("../utils/nameValidation");
 
 const categoryNames = {
   9: "General Knowledge",
@@ -421,8 +422,10 @@ const updateProfile = async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const profilePicture = String(req.body.profilePicture || "").trim();
 
-    if (!name) {
-      return res.status(400).json({ error: "Name is mandatory" });
+    const nameError = validateName(name);
+
+    if (nameError) {
+      return res.status(400).json({ error: nameError });
     }
 
     if (!email) {

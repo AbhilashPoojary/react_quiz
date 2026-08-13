@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { validateField } from "../utils/fieldValidation";
 
 export default function InputPassword({
   name,
@@ -8,9 +9,24 @@ export default function InputPassword({
   setValue,
   placeholder,
   required,
+  rules,
+  onValidate,
   error,
 }) {
   const [visible, setVisible] = useState(false);
+  const validationRules = {
+    ...(required ? { required: true } : {}),
+    ...(rules || {}),
+  };
+  const handleChange = (event) => {
+    const nextValue = event.target.value;
+    setValue(nextValue);
+
+    if (onValidate) {
+      onValidate(validateField(nextValue, validationRules, label));
+    }
+  };
+
   return (
     <div className="sm:col-span-2 mb-4 relative">
       <label
@@ -27,7 +43,7 @@ export default function InputPassword({
           className="app-input block w-full rounded border border-gray-300 p-2.5 pr-10 text-sm text-gray-900 outline-none focus:border-primary-600 focus:ring-primary-600"
           placeholder={placeholder || `Please enter the ${name}`}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={handleChange}
         />
         <button
           type="button"

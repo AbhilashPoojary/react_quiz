@@ -9,6 +9,7 @@ const {
   verifyTransporter,
 } = require("../utils/email");
 const { sendTemplateEmail } = require("../services/emailTemplateService");
+const { validateName } = require("../utils/nameValidation");
 const { getPasswordExpiryInfo } = require("../utils/passwordExpiry");
 const { validatePasswordStrength } = require("../utils/passwordValidation");
 
@@ -54,6 +55,12 @@ const register = async (req, res) => {
   const { password, email, role, ...fields } = req.body;
   const lowercaseEmail = normalizeEmail(email);
   try {
+    const nameError = validateName(fields.name);
+
+    if (nameError) {
+      return res.status(400).json({ error: nameError });
+    }
+
     const passwordStrengthError = validatePasswordStrength(password || "");
 
     if (passwordStrengthError) {

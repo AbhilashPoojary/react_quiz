@@ -40,6 +40,8 @@ const decodeHtmlEntities = (value = "") =>
 const cleanText = (value = "") =>
   decodeHtmlEntities(value).replace(/\s+/g, " ").trim();
 
+const normalizeQuestionType = (value = "") => cleanText(value) || "multiple";
+
 const getDuplicateKey = (question = "") => cleanText(question).toLowerCase();
 
 const uniqueCleanValues = (values = []) => {
@@ -74,7 +76,7 @@ const normalizeEventQuestion = (question, event) => {
     question: cleanText(question.question),
     category: cleanText(question.category || event.categoryName),
     difficulty: cleanText(question.difficulty || event.difficulty),
-    type: cleanText(question.type || event.questionType),
+    type: normalizeQuestionType(question.type || event.questionType),
     options: uniqueCleanValues(answerOptions.length ? answerOptions : fallbackOptions),
     correctAnswer,
     foundIn: ["EVENT"],
@@ -85,7 +87,7 @@ const normalizeChallengeQuestion = (question, challenge) => ({
   question: cleanText(question.question),
   category: cleanText(question.category || challenge.config?.categoryName),
   difficulty: cleanText(question.difficulty || challenge.config?.difficulty),
-  type: cleanText(question.type || challenge.config?.questionType),
+  type: normalizeQuestionType(question.type || challenge.config?.questionType),
   options: uniqueCleanValues(
     question.options ||
       question.answers ||
@@ -99,7 +101,7 @@ const normalizeResultQuestion = (answer, result) => ({
   question: cleanText(answer.question),
   category: cleanText(answer.category || result.category),
   difficulty: cleanText(answer.difficulty || result.difficulty),
-  type: cleanText(answer.type || ""),
+  type: normalizeQuestionType(answer.type),
   options: uniqueCleanValues(
     answer.options || [answer.correctAnswer, answer.selectedAnswer]
   ),

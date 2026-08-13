@@ -3,7 +3,16 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import ErrorNotification from "../components/ErrorNotification";
 import InputPassword from "../components/InputPassword";
 import apiClient from "../utils/apiClient";
-import { validatePasswordStrength } from "../utils/passwordValidation";
+import { validateField } from "../utils/fieldValidation";
+
+const passwordRules = {
+  required: true,
+  minLength: 8,
+  uppercase: true,
+  lowercase: true,
+  number: true,
+  special: true,
+};
 
 export default function ResetPassword({ setAlign }) {
   const { token } = useParams();
@@ -22,13 +31,9 @@ export default function ResetPassword({ setAlign }) {
   const validate = () => {
     const errors = {};
 
-    if (!password.trim()) {
-      errors.password = "New Password is mandatory";
-    } else {
-      const passwordError = validatePasswordStrength(password);
-      if (passwordError) {
-        errors.password = passwordError;
-      }
+    const passwordError = validateField(password, passwordRules, "New Password");
+    if (passwordError) {
+      errors.password = passwordError;
     }
 
     if (!confirmPassword.trim()) {
@@ -99,7 +104,11 @@ export default function ResetPassword({ setAlign }) {
             setFormErrors((prev) => ({ ...prev, password: "" }));
           }}
           required
+          rules={passwordRules}
           error={formErrors.password}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, password: message }))
+          }
         />
         <InputPassword
           name="confirm password"

@@ -14,6 +14,13 @@ import InputText from "./InputText";
 import ErrorNotification from "./ErrorNotification";
 import ConfirmPopup from "./ConfirmPopup";
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailRules = {
+  required: true,
+  pattern: emailPattern,
+  patternMessage: "Please enter a valid email",
+};
+
 export default function Signin({ switchToSignUp, setAlign }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -136,7 +143,11 @@ export default function Signin({ switchToSignUp, setAlign }) {
           }}
           type="text"
           required
+          rules={emailRules}
           error={formErrors.email}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, email: message }))
+          }
         />
         <InputPassword
           name="password"

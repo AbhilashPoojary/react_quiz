@@ -15,11 +15,30 @@ import InputText from "./InputText";
 import InputFileUpload from "./InputFileUpload";
 import ErrorNotification from "./ErrorNotification";
 import ProfileImageEditor from "./ProfileImageEditor";
-import { validatePasswordStrength } from "../utils/passwordValidation";
+import { validateField, validateFile } from "../utils/fieldValidation";
 
 const allowedProfileImageTypes = ["image/jpeg", "image/png", "image/webp"];
-const maxProfileImageSize = 5 * 1024 * 1024;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const nameRules = { required: true, minLength: 3, maxLength: 50 };
+const emailRules = {
+  required: true,
+  pattern: emailPattern,
+  patternMessage: "Please enter a valid email",
+};
+const passwordRules = {
+  required: true,
+  minLength: 8,
+  uppercase: true,
+  lowercase: true,
+  number: true,
+  special: true,
+};
+const profilePicRules = {
+  required: true,
+  accept: allowedProfileImageTypes,
+  acceptMessage: "Please select a JPEG, PNG, or WebP image",
+  maxSizeMb: 5,
+};
 
 export default function Signup({ switchToSignIn, setAlign }) {
   const [name, setName] = useState("");
@@ -82,19 +101,10 @@ export default function Signup({ switchToSignIn, setAlign }) {
       return;
     }
 
-    if (!allowedProfileImageTypes.includes(file.type)) {
-      setNotification({
-        type: "error",
-        message: "Please select a JPEG, PNG, or WebP image",
-      });
-      return;
-    }
-
-    if (file.size > maxProfileImageSize) {
-      setNotification({
-        type: "error",
-        message: "Profile image must be 5MB or smaller",
-      });
+    const profilePicError = validateFile(file, profilePicRules, "Profile pic");
+    if (profilePicError) {
+      setFormErrors((prev) => ({ ...prev, profilePic: profilePicError }));
+      setNotification({ type: "error", message: profilePicError });
       return;
     }
 
@@ -130,8 +140,9 @@ export default function Signup({ switchToSignIn, setAlign }) {
     const errors = {};
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!name.trim()) {
-      errors.name = "Name is mandatory";
+    const nameError = validateField(name, nameRules, "Name");
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (!normalizedEmail) {
@@ -147,21 +158,18 @@ export default function Signup({ switchToSignIn, setAlign }) {
       errors.email = "Email is already registered";
     }
 
-    if (!password.trim()) {
-      errors.password = "Password is mandatory";
-    } else {
-      const passwordError = validatePasswordStrength(password);
-      if (passwordError) {
-        errors.password = passwordError;
-      }
+    const passwordError = validateField(password, passwordRules, "Password");
+    if (passwordError) {
+      errors.password = passwordError;
     }
 
     if (!confirmpassword.trim()) {
       errors.confirmpassword = "Confirm Password is mandatory";
     }
 
-    if (!profilePic) {
-      errors.profilePic = "Upload profile pic is mandatory";
+    const profilePicError = validateFile(profilePic, profilePicRules, "Profile pic");
+    if (profilePicError) {
+      errors.profilePic = profilePicError;
     }
 
     setFormErrors(errors);
@@ -289,7 +297,11 @@ export default function Signup({ switchToSignIn, setAlign }) {
           }}
           type="text"
           required
+          rules={nameRules}
           error={formErrors.name}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, name: message }))
+          }
         />
         <InputText
           name="email"
@@ -301,7 +313,11 @@ export default function Signup({ switchToSignIn, setAlign }) {
           }}
           type="text"
           required
+          rules={emailRules}
           error={formErrors.email}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, email: message }))
+          }
         />
         {email.trim() && emailPattern.test(email.trim().toLowerCase()) && (
           <div className="-mt-3 mb-4 text-sm">
@@ -325,7 +341,11 @@ export default function Signup({ switchToSignIn, setAlign }) {
             setFormErrors((prev) => ({ ...prev, password: "" }));
           }}
           required
+          rules={passwordRules}
           error={formErrors.password}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, password: message }))
+          }
         />
         <InputPassword
           name="cpassword"
@@ -349,6 +369,10 @@ export default function Signup({ switchToSignIn, setAlign }) {
           accept="image/jpeg,image/png,image/webp"
           required
           error={formErrors.profilePic}
+          rules={profilePicRules}
+          onValidate={(message) =>
+            setFormErrors((prev) => ({ ...prev, profilePic: message }))
+          }
         />
         {selectedImageUrl && (
           <ProfileImageEditor

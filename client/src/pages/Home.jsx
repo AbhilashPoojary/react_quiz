@@ -6,6 +6,9 @@ import { Popper } from "react-popper";
 import QuizDetails from "../components/QuizDetails";
 import QuizSetupV2 from "../components/QuizSetupV2";
 import apiClient from "../utils/apiClient";
+import { validateField } from "../utils/fieldValidation";
+
+const nameRules = { required: true, minLength: 3, maxLength: 50 };
 export default function Home({
   requestQuestions,
   name,
@@ -58,8 +61,9 @@ export default function Home({
     const errors = {};
     setError("");
 
-    if (name === "" || name === null) {
-      errors.name = "User Name is mandatory";
+    const nameError = validateField(name, nameRules, "User Name");
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (category === "") {
@@ -170,6 +174,7 @@ export default function Home({
           error={error}
           setName={setName}
           formErrors={formErrors}
+          nameRules={nameRules}
           setFormErrors={setFormErrors}
           category={category}
           difficulty={difficulty}

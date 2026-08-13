@@ -6,8 +6,11 @@ import Dropdown from "./Dropdown";
 import ErrorNotification from "./ErrorNotification";
 import { CustomCheckbox, CustomRadio } from "./CustomSelectionControls";
 import apiClient from "../utils/apiClient";
+import { validateField } from "../utils/fieldValidation";
 import { getChallengeUrl, shareChallenge } from "../utils/shareChallenge";
 import quizMaze from "../assets/homeimage.jpg";
+
+const nameRules = { required: true, minLength: 3, maxLength: 50 };
 
 const difficultyOptions = [
   { category: "Easy", value: "easy" },
@@ -99,7 +102,8 @@ export default function QuizSetupV2({
   const validate = () => {
     const errors = {};
 
-    if (!name) errors.name = "User Name is mandatory";
+    const nameError = validateField(name, nameRules, "User Name");
+    if (nameError) errors.name = nameError;
     if (!category) errors.category = "Category is mandatory";
     if (!difficulty) errors.difficulty = "Difficulty is mandatory";
     if (!questionType) errors.questionType = "Question Type is mandatory";
