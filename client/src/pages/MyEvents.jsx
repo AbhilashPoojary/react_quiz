@@ -51,6 +51,18 @@ const getDisabledActionLabel = (event) => {
   return "Not Live";
 };
 
+const formatTimer = (event) => {
+  if (event?.timerMode === "PER_QUESTION") {
+    return `${event.timePerQuestion || 0} sec/question`;
+  }
+
+  if (event?.totalDuration) {
+    return `${Math.ceil(Number(event.totalDuration) / 60)} mins`;
+  }
+
+  return `${event?.duration || 0} mins`;
+};
+
 export default function MyEvents({ setAlign }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -117,7 +129,7 @@ export default function MyEvents({ setAlign }) {
                   </h2>
                   <p className="app-muted-text mt-1 text-sm">
                     {event.categoryName} • {event.difficulty} •{" "}
-                    {event.duration} mins
+                    {formatTimer(event)}
                   </p>
                   <p className="app-muted-text mt-1 text-sm">
                     {formatDate(event.eventDate)} {event.startTime}

@@ -16,6 +16,18 @@ const formatDate = (date) => {
   }).format(new Date(date));
 };
 
+const formatTimer = (event) => {
+  if (event?.timerMode === "PER_QUESTION") {
+    return `${event.timePerQuestion || 0} sec/question`;
+  }
+
+  if (event?.totalDuration) {
+    return `${Math.ceil(Number(event.totalDuration) / 60)} mins total`;
+  }
+
+  return `${event?.duration || 0} mins total`;
+};
+
 const eventSkeletonWidths = ["w-40", "w-28", "w-24", "w-20", "w-16", "w-20", "w-16"];
 
 function EventTableSkeleton() {
@@ -310,7 +322,7 @@ export default function AdminEvents() {
               <th className="px-4 py-3">Start Date</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Questions</th>
-              <th className="px-4 py-3">Duration</th>
+              <th className="px-4 py-3">Timer</th>
               <th className="px-4 py-3">Participants</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -339,7 +351,7 @@ export default function AdminEvents() {
                   <td className="px-4 py-3">
                     {event.questions?.length || 0}/{event.questionCount}
                   </td>
-                  <td className="px-4 py-3">{event.duration} mins</td>
+                  <td className="px-4 py-3">{formatTimer(event)}</td>
                   <td className="px-4 py-3">{event.participants || 0}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -446,7 +458,7 @@ export default function AdminEvents() {
               <p><strong>Difficulty:</strong> {selectedEvent.difficulty}</p>
               <p><strong>Questions:</strong> {selectedEvent.questionCount}</p>
               <p><strong>Type:</strong> {selectedEvent.questionType}</p>
-              <p><strong>Duration:</strong> {selectedEvent.duration} mins</p>
+              <p><strong>Timer:</strong> {formatTimer(selectedEvent)}</p>
               <p>
                 <strong>Notify Users:</strong>{" "}
                 {selectedEvent.notifyUsers ? "Yes" : "No"}

@@ -21,6 +21,13 @@ const getThemeColor = (name, fallback) => {
   );
 };
 
+const getShortCategoryLabel = (label) => {
+  if (!label) return "";
+  const normalized = String(label).replace(/^Entertainment:\s*/i, "").trim();
+  const [firstPart] = normalized.split(/[:/-]/);
+  return firstPart.trim().split(/\s+/)[0] || normalized;
+};
+
 export default function CategoryBarChart({ data }) {
   const sortedData = useMemo(
     () => [...data].sort((a, b) => b.avgScore - a.avgScore),
@@ -81,13 +88,17 @@ export default function CategoryBarChart({ data }) {
         },
         ticks: {
           color: textColor,
+          callback(value) {
+            const label = this.getLabelForValue(value);
+            return getShortCategoryLabel(label);
+          },
         },
       },
     },
   };
 
   return (
-    <div className="profile-chart-panel h-[320px] rounded border p-4">
+    <div className="profile-chart-panel h-[320px] rounded border p-2 sm:p-4">
       <Bar data={chartData} options={options} />
     </div>
   );

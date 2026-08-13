@@ -80,6 +80,19 @@ const EventSchema = new mongoose.Schema(
       required: true,
       min: 1,
     },
+    timerMode: {
+      type: String,
+      enum: ["TOTAL", "PER_QUESTION"],
+      default: "TOTAL",
+    },
+    totalDuration: {
+      type: Number,
+      default: null,
+    },
+    timePerQuestion: {
+      type: Number,
+      default: null,
+    },
     eventDate: {
       type: Date,
       required: true,

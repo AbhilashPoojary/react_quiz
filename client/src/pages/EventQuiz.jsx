@@ -33,7 +33,11 @@ export default function EventQuiz({ setAlign }) {
         setLoading(true);
         const response = await apiClient.get(`/api/events/${id}/play`);
         setEvent(response.data);
-        setRemainingSeconds(Number(response.data.duration || 0) * 60);
+        setRemainingSeconds(
+          response.data.timerMode === "PER_QUESTION"
+            ? Number(response.data.timePerQuestion || 0)
+            : Number(response.data.duration || 0) * 60
+        );
         startedAtRef.current = Date.now();
       } catch (error) {
         setMessage(error?.response?.data?.error || "Unable to load event");
@@ -47,6 +51,7 @@ export default function EventQuiz({ setAlign }) {
 
   const currentQuestion = event?.questions?.[currentIndex];
   const isLastQuestion = currentIndex + 1 === event?.questions?.length;
+  const isPerQuestionTimer = event?.timerMode === "PER_QUESTION";
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
 
   const formatTime = (seconds) => {
@@ -99,10 +104,49 @@ export default function EventQuiz({ setAlign }) {
   }, [event, remainingSeconds, submitting]);
 
   useEffect(() => {
-    if (event && remainingSeconds === 0 && !submitting) {
-      submitEvent();
+    if (!event || !isPerQuestionTimer || submitting) {
+      return;
     }
-  }, [event, remainingSeconds, submitting]);
+
+    setRemainingSeconds(Number(event.timePerQuestion || 0));
+  }, [event, currentIndex, isPerQuestionTimer, submitting]);
+
+  useEffect(() => {
+    if (!event || remainingSeconds !== 0 || submitting) {
+      return;
+    }
+
+    if (!isPerQuestionTimer) {
+      submitEvent();
+      return;
+    }
+
+    if (selectedAnswer || !currentQuestion) {
+      return;
+    }
+
+    const nextAnswers = {
+      ...answers,
+      [currentQuestion.questionOrder]: "",
+    };
+    setAnswers(nextAnswers);
+
+    if (isLastQuestion) {
+      submitEvent(nextAnswers);
+    } else {
+      setSelectedAnswer("");
+      setCurrentIndex((prev) => prev + 1);
+    }
+  }, [
+    answers,
+    currentQuestion,
+    event,
+    isLastQuestion,
+    isPerQuestionTimer,
+    remainingSeconds,
+    selectedAnswer,
+    submitting,
+  ]);
 
   const handleAnswer = (answer) => {
     if (!currentQuestion || selectedAnswer || submitting) {

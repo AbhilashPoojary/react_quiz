@@ -15,7 +15,9 @@ const initialFormState = {
   difficulty: "",
   questionCount: "",
   questionType: "",
-  duration: "",
+  timerMode: "TOTAL",
+  totalDuration: "",
+  timePerQuestion: "",
   eventDate: "",
   startTime: "",
   registrationDeadline: "",
@@ -34,6 +36,21 @@ const questionTypeOptions = [
   { category: "Multiple Choice", value: "multiple" },
   { category: "True / False", value: "boolean" },
 ];
+
+const timerModeOptions = [
+  { category: "Total Quiz Time", value: "TOTAL" },
+  { category: "Time Per Question", value: "PER_QUESTION" },
+];
+
+const totalDurationOptions = [5, 10, 15, 20, 30, 45, 60].map((minutes) => ({
+  category: `${minutes} minutes`,
+  value: minutes * 60,
+}));
+
+const perQuestionOptions = [10, 15, 20, 30, 45, 60].map((seconds) => ({
+  category: `${seconds} seconds`,
+  value: seconds,
+}));
 
 const pad = (value) => String(value).padStart(2, "0");
 
@@ -73,7 +90,7 @@ const buildErrors = (formState) => {
     difficulty: "Difficulty",
     questionCount: "Question Count",
     questionType: "Question Type",
-    duration: "Duration",
+    timerMode: "Timer Mode",
     eventDate: "Event Date",
     startTime: "Start Time",
     registrationDeadline: "Registration Deadline",
@@ -106,6 +123,14 @@ const buildErrors = (formState) => {
     formState.registrationDeadline < todayValue
   ) {
     errors.registrationDeadline = "Registration Deadline cannot be in the past";
+  }
+
+  if (formState.timerMode === "TOTAL" && !formState.totalDuration) {
+    errors.totalDuration = "Total quiz time is mandatory";
+  }
+
+  if (formState.timerMode === "PER_QUESTION" && !formState.timePerQuestion) {
+    errors.timePerQuestion = "Time per question is mandatory";
   }
 
   return errors;
@@ -164,7 +189,10 @@ export default function EventForm({ eventId }) {
           difficulty: event.difficulty || "",
           questionCount: event.questionCount || "",
           questionType: event.questionType || "",
-          duration: event.duration || "",
+          timerMode: event.timerMode || "TOTAL",
+          totalDuration:
+            event.totalDuration || (event.duration ? Number(event.duration) * 60 : ""),
+          timePerQuestion: event.timePerQuestion || "",
           eventDate: event.eventDate ? event.eventDate.slice(0, 10) : "",
           startTime: event.startTime || "",
           registrationDeadline: event.registrationDeadline
@@ -220,6 +248,22 @@ export default function EventForm({ eventId }) {
     setErrors((prev) => ({ ...prev, categoryId: "" }));
   };
 
+  const handleTimerModeChange = (value) => {
+    setFormState((prev) => ({
+      ...prev,
+      timerMode: value,
+      totalDuration: value === "TOTAL" ? prev.totalDuration : "",
+      timePerQuestion: value === "PER_QUESTION" ? prev.timePerQuestion : "",
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      timerMode: "",
+      totalDuration: "",
+      timePerQuestion: "",
+    }));
+    setMessage({ type: "info", text: "" });
+  };
+
   const saveEvent = async () => {
     const validationErrors = buildErrors(formState);
     setErrors(validationErrors);
@@ -232,7 +276,13 @@ export default function EventForm({ eventId }) {
       ...formState,
       categoryId: Number(formState.categoryId),
       questionCount: Number(formState.questionCount),
-      duration: Number(formState.duration),
+      timerMode: formState.timerMode,
+      totalDuration:
+        formState.timerMode === "TOTAL" ? Number(formState.totalDuration) : null,
+      timePerQuestion:
+        formState.timerMode === "PER_QUESTION"
+          ? Number(formState.timePerQuestion)
+          : null,
     };
 
     if (eventId) {
@@ -411,16 +461,52 @@ export default function EventForm({ eventId }) {
           )}
         </div>
 
-        <InputText
-          name="duration"
-          label="Duration"
-          value={formState.duration}
-          setValue={(value) => updateField("duration", value)}
-          type="number"
-          required
-          error={errors.duration}
-          containerClassName="mb-3"
-        />
+        <div>
+          <label className="app-label mb-1 block text-sm font-medium">
+            Timer Mode <span className="text-red-600">*</span>
+          </label>
+          <Dropdown
+            data={timerModeOptions}
+            state={formState.timerMode}
+            setState={handleTimerModeChange}
+            dropdownId="admin-event-timer-mode"
+          />
+          {errors.timerMode && (
+            <p className="mt-1 text-sm text-red-600">{errors.timerMode}</p>
+          )}
+        </div>
+
+        {formState.timerMode === "TOTAL" ? (
+          <div>
+            <label className="app-label mb-1 block text-sm font-medium">
+              Total Quiz Time <span className="text-red-600">*</span>
+            </label>
+            <Dropdown
+              data={totalDurationOptions}
+              state={formState.totalDuration}
+              setState={(value) => updateField("totalDuration", value)}
+              dropdownId="admin-event-total-duration"
+            />
+            {errors.totalDuration && (
+              <p className="mt-1 text-sm text-red-600">{errors.totalDuration}</p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="app-label mb-1 block text-sm font-medium">
+              Time Per Question <span className="text-red-600">*</span>
+            </label>
+            <Dropdown
+              data={perQuestionOptions}
+              state={formState.timePerQuestion}
+              setState={(value) => updateField("timePerQuestion", value)}
+              dropdownId="admin-event-time-per-question"
+            />
+            {errors.timePerQuestion && (
+              <p className="mt-1 text-sm text-red-600">{errors.timePerQuestion}</p>
+            )}
+          </div>
+        )}
 
         <DatePickerInput
           name="eventDate"

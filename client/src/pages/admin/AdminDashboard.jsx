@@ -54,6 +54,13 @@ const getTimeUntil = (value) => {
   return `${remainingMinutes}m`;
 };
 
+const getShortCategoryLabel = (label) => {
+  if (!label) return "";
+  const normalized = String(label).replace(/^Entertainment:\s*/i, "").trim();
+  const [firstPart] = normalized.split(/[:/-]/);
+  return firstPart.trim().split(/\s+/)[0] || normalized;
+};
+
 function SummaryCard({ label, value, loading, suffix = "" }) {
   return (
     <div className="admin-card rounded border p-5">
@@ -149,18 +156,136 @@ function AccuracySkeleton() {
 
 function RecentActivitySkeleton() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <div
-          className="rounded border p-4"
-          key={`recent-activity-skeleton-${index}`}
-        >
-          <SkeletonBlock className="h-5 w-44 max-w-full" />
-          <SkeletonBlock className="mt-3 h-4 w-full" />
-          <SkeletonBlock className="mt-2 h-4 w-2/3" />
-          <SkeletonBlock className="mt-4 h-4 w-28" />
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[760px] text-left text-sm">
+        <thead>
+          <tr className="app-table-header border-b">
+            {["Activity", "Type", "User", "Date", "Action"].map((heading) => (
+              <th className="px-4 py-3" key={heading}>
+                <SkeletonBlock className="h-4 w-20" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <tr
+              className="app-table-row border-b"
+              key={`recent-activity-skeleton-${index}`}
+            >
+              <td className="px-4 py-4">
+                <SkeletonBlock className="h-4 w-48" />
+                <SkeletonBlock className="mt-2 h-3 w-64" />
+              </td>
+              <td className="px-4 py-4"><SkeletonBlock className="h-4 w-24" /></td>
+              <td className="px-4 py-4"><SkeletonBlock className="h-4 w-32" /></td>
+              <td className="px-4 py-4"><SkeletonBlock className="h-4 w-36" /></td>
+              <td className="px-4 py-4"><SkeletonBlock className="h-8 w-16" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  if (value === undefined || value === null || value === "") return null;
+
+  return (
+    <div>
+      <p className="app-muted-text text-xs uppercase">{label}</p>
+      <p className="app-strong-text mt-1 break-words text-sm">{value}</p>
+    </div>
+  );
+}
+
+function ActivityDetailsModal({ activity, onClose }) {
+  if (!activity) return null;
+
+  const event = activity.event || {};
+  const metadata = activity.metadata || {};
+  const isEventActivity = activity.type === "EVENT" || activity.type === "REGISTRATION";
+  const title = isEventActivity
+    ? event.eventName || activity.detail
+    : activity.detail || activity.label;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="admin-card max-h-[90vh] w-full max-w-2xl overflow-auto rounded border p-5 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="app-muted-text text-xs uppercase">{activity.type}</p>
+            <h2 className="app-strong-text mt-1 text-xl font-bold">{title}</h2>
+            <p className="app-muted-text mt-1 text-sm">{activity.label}</p>
+          </div>
+          <button className="text-red-600" type="button" onClick={onClose}>
+            Close
+          </button>
         </div>
-      ))}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailRow label="User" value={activity.user?.name} />
+          <DetailRow label="Email" value={activity.user?.email} />
+          <DetailRow label="Activity Date" value={formatDateTime(activity.createdAt)} />
+
+          {isEventActivity ? (
+            <>
+              <DetailRow label="Category" value={event.categoryName} />
+              <DetailRow label="Difficulty" value={event.difficulty} />
+              <DetailRow label="Status" value={event.status} />
+              <DetailRow label="Questions" value={event.questionCount} />
+              <DetailRow label="Type" value={event.questionType} />
+              <DetailRow label="Duration" value={event.duration ? `${event.duration} mins` : ""} />
+              <DetailRow label="Registered Users" value={event.registeredUsers} />
+              <DetailRow label="Start" value={formatDateTime(event.startAt)} />
+              <DetailRow label="End" value={formatDateTime(event.endAt)} />
+              <DetailRow
+                label="Registration Deadline"
+                value={formatDateTime(event.registrationDeadline)}
+              />
+              <div className="sm:col-span-2">
+                <DetailRow label="Description" value={event.description} />
+              </div>
+            </>
+          ) : activity.type === "CHALLENGE" ? (
+            <>
+              <DetailRow label="Challenge Code" value={metadata.challengeCode} />
+              <DetailRow label="Status" value={metadata.status} />
+              <DetailRow label="Category" value={metadata.categoryName} />
+              <DetailRow label="Difficulty" value={metadata.difficulty} />
+              <DetailRow label="Questions" value={metadata.questionCount} />
+              <DetailRow label="Duration" value={metadata.duration ? `${metadata.duration} mins` : ""} />
+              <DetailRow label="Correct" value={metadata.correctAnswers} />
+              <DetailRow label="Wrong" value={metadata.wrongAnswers} />
+            </>
+          ) : (
+            <>
+              <DetailRow label="Category" value={metadata.category} />
+              <DetailRow label="Difficulty" value={metadata.difficulty} />
+              <DetailRow
+                label="Score"
+                value={
+                  metadata.score !== undefined
+                    ? `${metadata.score} / ${metadata.maxScore || 0}`
+                    : ""
+                }
+              />
+              <DetailRow label="Accuracy" value={metadata.accuracy !== undefined ? `${metadata.accuracy}%` : ""} />
+              <DetailRow
+                label="Correct"
+                value={
+                  metadata.correctAnswers !== undefined
+                    ? `${metadata.correctAnswers} / ${metadata.questionCount || 0}`
+                    : ""
+                }
+              />
+              <DetailRow label="Wrong" value={metadata.wrongAnswers} />
+              <DetailRow label="Time Taken" value={metadata.timeTaken ? `${metadata.timeTaken}s` : ""} />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -201,6 +326,7 @@ export default function AdminDashboard() {
   const [setupVersion, setSetupVersion] = useState("V1");
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -305,9 +431,22 @@ export default function AdminDashboard() {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => items?.[0]?.label || "",
+        },
+      },
     },
     scales: {
       x: { beginAtZero: true },
+      y: {
+        ticks: {
+          callback(value) {
+            const label = this.getLabelForValue(value);
+            return getShortCategoryLabel(label);
+          },
+        },
+      },
     },
   };
 
@@ -496,21 +635,62 @@ export default function AdminDashboard() {
         {loading ? (
           <RecentActivitySkeleton />
         ) : stats.recentActivity?.length ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {stats.recentActivity.map((item, index) => (
-              <div
-                className="rounded border p-4"
-                key={`${item.type}-${item.createdAt}-${index}`}
-              >
-                <p className="app-strong-text font-semibold">{item.label}</p>
-                <p className="app-muted-text mt-2 line-clamp-2 text-sm">
-                  {item.detail}
-                </p>
-                <span className="app-muted-text mt-4 block text-xs">
-                  {formatDateTime(item.createdAt)}
-                </span>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="app-table-header border-b">
+                  <th className="px-4 py-3">Activity</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentActivity.map((item, index) => (
+                  <tr
+                    className="app-table-row border-b last:border-b-0"
+                    key={`${item.type}-${item.createdAt}-${index}`}
+                  >
+                    <td className="max-w-[280px] px-4 py-4">
+                      <p className="app-strong-text truncate font-semibold" title={item.label}>
+                        {item.label}
+                      </p>
+                      <p className="app-muted-text mt-1 truncate" title={item.detail}>
+                        {item.detail}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="rounded-full border border-red-600/30 px-2.5 py-1 text-xs font-semibold text-red-600">
+                        {item.type}
+                      </span>
+                    </td>
+                    <td className="max-w-[180px] px-4 py-4">
+                      <p className="app-strong-text truncate" title={item.user?.name || "Unknown User"}>
+                        {item.user?.name || "Unknown User"}
+                      </p>
+                      {item.user?.email && (
+                        <p className="app-muted-text truncate text-xs" title={item.user.email}>
+                          {item.user.email}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {formatDateTime(item.createdAt)}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        className="analysis-outline-button rounded border border-red-600 px-3 py-2 text-red-600"
+                        type="button"
+                        onClick={() => setSelectedActivity(item)}
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <p className="app-muted-text rounded border p-4 text-center">
@@ -518,6 +698,11 @@ export default function AdminDashboard() {
           </p>
         )}
       </section>
+
+      <ActivityDetailsModal
+        activity={selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
     </div>
   );
 }

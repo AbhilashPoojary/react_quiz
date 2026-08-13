@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Check,
   ClipboardList,
+  LayoutDashboard,
   LogOut,
   Moon,
   Bell,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { selectUserInfo } from "../slice/authSlice";
+import { selectUserInfo, selectUserRole } from "../slice/authSlice";
 import apiClient from "../utils/apiClient";
 
 const THEME_STORAGE_KEY = "theme";
@@ -35,6 +36,7 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const currentUserName = useSelector(selectUserInfo);
+  const userRole = useSelector(selectUserRole);
   const [isOpen, setIsOpen] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isRecentOpen, setIsRecentOpen] = useState(false);
@@ -42,6 +44,7 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const userName = currentUserName || loggedinUser || name;
+  const isAdmin = userRole === "ADMIN";
 
   useEffect(() => {
     const savedTheme = getSavedTheme();
@@ -102,6 +105,11 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
   const handleProfileClick = () => {
     setIsOpen(false);
     navigate("/profile");
+  };
+
+  const handleAdminDashboardClick = () => {
+    setIsOpen(false);
+    navigate("/admin/dashboard");
   };
 
   const handleQuizSetupClick = () => {
@@ -178,6 +186,18 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
           <p className="user-profile-muted text-xs">Signed in as</p>
           <p className="truncate text-sm font-semibold">{userName}</p>
         </div>
+
+        {isAdmin && (
+          <button
+            type="button"
+            className="user-profile-menu-item flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition focus:outline-none"
+            role="menuitem"
+            onClick={handleAdminDashboardClick}
+          >
+            <LayoutDashboard size={17} />
+            <span>Admin Dashboard</span>
+          </button>
+        )}
 
         <button
           type="button"

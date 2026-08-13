@@ -463,7 +463,7 @@ const notifications = async (req, res) => {
     const eventIds = latestItems.map((item) => item.eventId);
     const [events, registrations] = await Promise.all([
       Event.find({ _id: { $in: eventIds } }).select(
-        "eventName categoryName difficulty eventDate startTime startAt endAt duration status registrationDeadline"
+        "eventName categoryName difficulty eventDate startTime startAt endAt duration timerMode totalDuration timePerQuestion status registrationDeadline"
       ),
       EventRegistration.find({
         userId: req.user.userId,
@@ -687,6 +687,9 @@ const getEventForPlay = async (req, res) => {
       categoryName: event.categoryName,
       difficulty: event.difficulty,
       duration: event.duration,
+      timerMode: event.timerMode || "TOTAL",
+      totalDuration: event.totalDuration,
+      timePerQuestion: event.timePerQuestion,
       startAt: event.startAt,
       endAt: event.endAt,
       effectiveStatus,
@@ -829,7 +832,7 @@ const getEventResult = async (req, res) => {
 const buildEventResultPayload = async (eventId, userId, currentResult) => {
   const [event, results] = await Promise.all([
     Event.findById(eventId).select(
-      "eventName categoryName difficulty questionCount duration status eventDate startTime startAt endAt"
+      "eventName categoryName difficulty questionCount duration timerMode totalDuration timePerQuestion status eventDate startTime startAt endAt"
     ),
     EventResult.find({ eventId }).sort({
       score: -1,

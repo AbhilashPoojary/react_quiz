@@ -31,7 +31,6 @@ const REQUIRED_FIELDS = [
   "difficulty",
   "questionCount",
   "questionType",
-  "duration",
   "eventDate",
   "startTime",
   "registrationDeadline",
@@ -99,23 +98,56 @@ const validateEventPayload = (payload) => {
     errors.questionCount = "Question count must be greater than 0";
   }
 
-  if (payload.duration && Number(payload.duration) < 1) {
-    errors.duration = "Duration must be greater than 0";
+  const normalizedTimerMode = String(payload.timerMode || "TOTAL").toUpperCase();
+
+  if (!["TOTAL", "PER_QUESTION"].includes(normalizedTimerMode)) {
+    errors.timerMode = "Invalid timer mode";
+  }
+
+  if (normalizedTimerMode === "TOTAL") {
+    if (!payload.totalDuration && !payload.duration) {
+      errors.totalDuration = "Total quiz time is mandatory";
+    } else if (Number(payload.totalDuration || Number(payload.duration) * 60) < 60) {
+      errors.totalDuration = "Total quiz time must be at least 1 minute";
+    }
+  }
+
+  if (normalizedTimerMode === "PER_QUESTION") {
+    if (!payload.timePerQuestion) {
+      errors.timePerQuestion = "Time per question is mandatory";
+    } else if (Number(payload.timePerQuestion) < 5) {
+      errors.timePerQuestion = "Time per question must be at least 5 seconds";
+    }
   }
 
   return errors;
 };
 
 const normalizeEventPayload = (payload, userId) => {
+  const timerMode = String(payload.timerMode || "TOTAL").toUpperCase();
+  const questionCount = Number(payload.questionCount);
+  const totalDuration =
+    timerMode === "TOTAL"
+      ? Number(payload.totalDuration || Number(payload.duration) * 60)
+      : null;
+  const timePerQuestion =
+    timerMode === "PER_QUESTION" ? Number(payload.timePerQuestion) : null;
+  const duration =
+    timerMode === "TOTAL"
+      ? Math.ceil(totalDuration / 60)
+      : Math.max(1, Math.ceil((timePerQuestion * questionCount) / 60));
   const normalized = {
     eventName: payload.eventName,
     description: payload.description,
     categoryId: Number(payload.categoryId),
     categoryName: payload.categoryName,
     difficulty: payload.difficulty,
-    questionCount: Number(payload.questionCount),
+    questionCount,
     questionType: payload.questionType,
-    duration: Number(payload.duration),
+    duration,
+    timerMode,
+    totalDuration,
+    timePerQuestion,
     eventDate: payload.eventDate,
     startTime: payload.startTime,
     registrationDeadline: payload.registrationDeadline,
@@ -260,10 +292,10 @@ const dashboard = async (req, res) => {
       eventResults,
     ] = await Promise.all([
       Event.find().select(
-        "eventName categoryName status eventDate startTime startAt endAt duration"
+        "eventName description categoryName status eventDate startTime startAt endAt registrationDeadline duration timerMode totalDuration timePerQuestion questionCount questionType difficulty"
       ),
       Result.find().select(
-        "name userId category correctAnswers questionCount createdAt"
+        "name userId category difficulty score maxScore correctAnswers wrongAnswers questionCount accuracy timeTaken totaltime createdAt"
       ),
       Challenge.find().select("challengeCode status expiresAt config createdAt"),
       ChallengeAttempt.find().select(
@@ -379,12 +411,63 @@ const dashboard = async (req, res) => {
       acc[challenge._id.toString()] = challenge;
       return acc;
     }, {});
+    const recentUserIds = [
+      ...quizResults.map((item) => item.userId),
+      ...challengeAttempts.map((item) => item.userId),
+      ...eventResults.map((item) => item.userId),
+      ...eventRegistrations.map((item) => item.userId),
+    ].filter(Boolean);
+    const recentUsers = await User.find({ _id: { $in: [...new Set(recentUserIds)] } })
+      .select("name email")
+      .lean();
+    const userMap = recentUsers.reduce((acc, user) => {
+      acc[user._id.toString()] = user;
+      return acc;
+    }, {});
+    const getUserSummary = (userId, fallbackName = "") => {
+      const user = userMap[String(userId)] || {};
+      return {
+        name: user.name || fallbackName || "Unknown User",
+        email: user.email || "",
+      };
+    };
+    const getEventDetails = (event) =>
+      event
+        ? {
+            eventName: event.eventName,
+            description: event.description,
+            categoryName: event.categoryName,
+            difficulty: event.difficulty,
+            status: getEffectiveEventStatus(event),
+            questionCount: event.questionCount,
+            questionType: event.questionType,
+            duration: event.duration,
+            startAt: event.startAt,
+            endAt: event.endAt,
+            eventDate: event.eventDate,
+            startTime: event.startTime,
+            registrationDeadline: event.registrationDeadline,
+            registeredUsers: eventRegistrationCounts[event._id.toString()] || 0,
+          }
+        : null;
     const recentActivity = [
       ...quizResults.map((item) => ({
         type: "QUIZ",
         label: `${item.name || "A user"} completed a quiz`,
         detail: categoryNames[item.category] || "Quiz",
         createdAt: item.createdAt,
+        user: getUserSummary(item.userId, item.name),
+        metadata: {
+          category: categoryNames[item.category] || item.category || "Quiz",
+          difficulty: item.difficulty,
+          score: item.score,
+          maxScore: item.maxScore,
+          correctAnswers: item.correctAnswers,
+          wrongAnswers: item.wrongAnswers,
+          questionCount: item.questionCount,
+          accuracy: item.accuracy,
+          timeTaken: item.timeTaken || item.totaltime,
+        },
       })),
       ...challengeAttempts.map((item) => ({
         type: "CHALLENGE",
@@ -394,18 +477,34 @@ const dashboard = async (req, res) => {
           challengeMap[item.challengeId]?.config?.categoryName ||
           "Challenge",
         createdAt: item.completedAt || item.createdAt,
+        user: getUserSummary(item.userId),
+        metadata: {
+          challengeCode: challengeMap[item.challengeId]?.challengeCode,
+          status: challengeMap[item.challengeId]?.status,
+          categoryName: challengeMap[item.challengeId]?.config?.categoryName,
+          difficulty: challengeMap[item.challengeId]?.config?.difficulty,
+          questionCount: challengeMap[item.challengeId]?.config?.questionCount,
+          duration: challengeMap[item.challengeId]?.config?.duration,
+          correctAnswers: item.correctAnswers,
+          wrongAnswers: item.wrongAnswers,
+          completedAt: item.completedAt || item.createdAt,
+        },
       })),
       ...eventResults.map((item) => ({
         type: "EVENT",
         label: "Event completed",
         detail: eventMap[item.eventId]?.eventName || "Event",
         createdAt: item.createdAt,
+        user: getUserSummary(item.userId),
+        event: getEventDetails(eventMap[item.eventId]),
       })),
       ...eventRegistrations.map((item) => ({
         type: "REGISTRATION",
         label: "User registered for an event",
         detail: eventMap[item.eventId]?.eventName || "Event registration",
         createdAt: item.createdAt,
+        user: getUserSummary(item.userId),
+        event: getEventDetails(eventMap[item.eventId]),
       })),
     ]
       .filter((item) => item.createdAt)
