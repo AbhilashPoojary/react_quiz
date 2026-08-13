@@ -11,6 +11,7 @@ export default function InputFileUpload({
   required,
   error,
   accept,
+  previewUrl,
 }) {
   const inputRef = useRef(null);
   const displayText = picLoading
@@ -29,10 +30,7 @@ export default function InputFileUpload({
 
   return (
     <div className="sm:col-span-2 mb-2 relative">
-      <label
-        htmlFor={name}
-        className="app-label block mb-2 text-sm font-medium text-gray-900"
-      >
+      <div className="app-label block mb-2 text-sm font-medium text-gray-900">
         {label}
         {required && <span className="text-red-600"> *</span>}
         {picLoading && (
@@ -56,7 +54,7 @@ export default function InputFileUpload({
             <span className="sr-only">Loading...</span>
           </div>
         )}
-      </label>
+      </div>
       <input
         ref={inputRef}
         className="sr-only"
@@ -79,12 +77,21 @@ export default function InputFileUpload({
           <ImagePlus size={16} />
           Choose Image
         </button>
-        <span
-          className={`min-w-0 flex-1 truncate text-right ${
-            value ? "app-strong-text font-medium" : "app-muted-text"
-          }`}
-        >
-          {displayText}
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          {previewUrl && value && (
+            <img
+              className="h-10 w-10 shrink-0 rounded-full border object-cover"
+              src={previewUrl}
+              alt="Selected profile"
+            />
+          )}
+          <span
+            className={`min-w-0 truncate text-right ${
+              value ? "app-strong-text font-medium" : "app-muted-text"
+            }`}
+          >
+            {displayText}
+          </span>
         </span>
         {value && (
           <button

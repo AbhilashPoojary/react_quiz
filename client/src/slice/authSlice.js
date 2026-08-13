@@ -47,6 +47,16 @@ const authSlice = createSlice({
       };
       localStorage.setItem("currentUser", JSON.stringify(state.currentUser));
     },
+    UPDATE_CURRENT_USER(state, action) {
+      state.currentUser = {
+        ...state.currentUser,
+        user: {
+          ...state.currentUser.user,
+          ...action.payload,
+        },
+      };
+      localStorage.setItem("currentUser", JSON.stringify(state.currentUser));
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(loginCall.pending, (state) => {
@@ -75,7 +85,8 @@ const authSlice = createSlice({
   },
 });
 
-export const { LOG_OUT, UPDATE_PASSWORD_EXPIRY } = authSlice.actions;
+export const { LOG_OUT, UPDATE_PASSWORD_EXPIRY, UPDATE_CURRENT_USER } =
+  authSlice.actions;
 
 export const selectUserInfo = (state) => state?.userInfo?.currentUser?.user?.name;
 export const selectCurrentUser = (state) => state?.userInfo?.currentUser;

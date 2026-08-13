@@ -7,6 +7,7 @@ const {
   allresult,
   searchResult,
   profile,
+  updateProfile,
   notifications,
   unreadNotificationCount,
   markNotificationsRead,
@@ -41,6 +42,7 @@ ResultRouter.post("/search", searchResult);
 ResultRouter.get("/leaderboard", leaderboard);
 ResultRouter.get("/all", allresult);
 ResultRouter.get("/profile", verifyToken, profile);
+ResultRouter.patch("/profile", verifyToken, updateProfile);
 ResultRouter.get("/notifications", verifyToken, notifications);
 ResultRouter.get("/notifications/unread-count", verifyToken, unreadNotificationCount);
 ResultRouter.patch("/notifications/read-all", verifyToken, markAllNotificationsRead);

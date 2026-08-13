@@ -22,6 +22,9 @@ const {
   getEffectiveEventStatus,
   withEffectiveEventStatus,
 } = require("../utils/eventStatus");
+const {
+  getUniqueExistingQuestions,
+} = require("../services/questionExtractionService");
 
 const REQUIRED_FIELDS = [
   "eventName",
@@ -547,6 +550,15 @@ const dashboard = async (req, res) => {
         ],
       },
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const questionBank = async (req, res) => {
+  try {
+    const payload = await getUniqueExistingQuestions();
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1133,6 +1145,7 @@ const unpublishEvent = async (req, res) => {
 
 module.exports = {
   dashboard,
+  questionBank,
   listUsers,
   getAdminUser,
   activateUser,

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { UserCircle } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Edit3, UserCircle, X } from "lucide-react";
+import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../utils/apiClient";
 import CategoryBarChart from "../components/CategoryBarChart";
@@ -9,6 +10,12 @@ import CategoryPolarAreaChart from "../components/CategoryPolarAreaChart";
 import CategoryProgress from "../components/CategoryProgress";
 import CategoryRadarChart from "../components/CategoryRadarChart";
 import Dropdown from "../components/Dropdown";
+import ErrorNotification from "../components/ErrorNotification";
+import InputFileUpload from "../components/InputFileUpload";
+import InputText from "../components/InputText";
+import ProfileImageEditor from "../components/ProfileImageEditor";
+import Util from "../components/util";
+import { UPDATE_CURRENT_USER } from "../slice/authSlice";
 
 const emptyProfile = {
   user: {},
@@ -22,6 +29,10 @@ const emptyProfile = {
   recentHistory: [],
   challengeHistory: [],
 };
+
+const allowedProfileImageTypes = ["image/jpeg", "image/png", "image/webp"];
+const maxProfileImageSize = 5 * 1024 * 1024;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const formatDate = (date) => {
   if (!date) {
@@ -102,10 +113,32 @@ function MyProfileSkeleton() {
 
 export default function MyProfile({ setAlign }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [profile, setProfile] = useState(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [categoryView, setCategoryView] = useState("progress");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    profilePicture: "",
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [picLoading, setPicLoading] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
+  const [notification, setNotification] = useState({
+    type: "info",
+    message: "",
+  });
+  const [emailAvailability, setEmailAvailability] = useState({
+    status: "idle",
+    email: "",
+  });
+  const selectedImageUrlRef = useRef("");
+  const emailAvailabilityCacheRef = useRef({});
+  const emailCheckRequestRef = useRef(0);
 
   useEffect(() => {
     setAlign(true);
@@ -127,6 +160,218 @@ export default function MyProfile({ setAlign }) {
 
     fetchProfile();
   }, []);
+
+  const startEditing = () => {
+    setEditForm({
+      name: profile.user?.name || "",
+      email: profile.user?.email || "",
+      profilePicture: profile.user?.profilePicture || "",
+    });
+    setFormErrors({});
+    setEmailAvailability({ status: "idle", email: "" });
+    setIsEditing(true);
+  };
+
+  const revokeSelectedImageUrl = () => {
+    if (selectedImageUrlRef.current) {
+      URL.revokeObjectURL(selectedImageUrlRef.current);
+      selectedImageUrlRef.current = "";
+    }
+    setSelectedImageUrl("");
+  };
+
+  const cancelEditing = () => {
+    revokeSelectedImageUrl();
+    setFormErrors({});
+    setEmailAvailability({ status: "idle", email: "" });
+    setIsEditing(false);
+  };
+
+  const updateEditField = (key, value) => {
+    setEditForm((prev) => ({ ...prev, [key]: value }));
+    setFormErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const handleProfileImageSelect = async (file) => {
+    setFormErrors((prev) => ({ ...prev, profilePicture: "" }));
+
+    if (!file) {
+      revokeSelectedImageUrl();
+      setEditForm((prev) => ({
+        ...prev,
+        profilePicture: profile.user?.profilePicture || "",
+      }));
+      return;
+    }
+
+    if (!allowedProfileImageTypes.includes(file.type)) {
+      setNotification({
+        type: "error",
+        message: "Please select a JPEG, PNG, or WebP image",
+      });
+      return;
+    }
+
+    if (file.size > maxProfileImageSize) {
+      setNotification({
+        type: "error",
+        message: "Profile image must be 5MB or smaller",
+      });
+      return;
+    }
+
+    revokeSelectedImageUrl();
+    const nextImageUrl = URL.createObjectURL(file);
+    selectedImageUrlRef.current = nextImageUrl;
+    setSelectedImageUrl(nextImageUrl);
+  };
+
+  const uploadEditedProfileImage = async (file) => {
+    await Util.uploadImage(
+      file,
+      setPicLoading,
+      (url) => updateEditField("profilePicture", url),
+      () => {},
+      () => {
+        setNotification({
+          type: "success",
+          message: "Profile pic uploaded successfully",
+        });
+      },
+      (message) => {
+        setNotification({ type: "error", message });
+      }
+    );
+    revokeSelectedImageUrl();
+  };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+    const errors = {};
+    const name = editForm.name.trim();
+    const email = editForm.email.trim().toLowerCase();
+
+    if (!name) {
+      errors.name = "Name is mandatory";
+    }
+
+    if (!email) {
+      errors.email = "Email is mandatory";
+    } else if (!emailPattern.test(email)) {
+      errors.email = "Please enter a valid email";
+    } else if (emailAvailability.status === "checking") {
+      errors.email = "Please wait while we check this email";
+    } else if (
+      emailAvailability.status === "unavailable" &&
+      emailAvailability.email === email
+    ) {
+      errors.email = "Email is already registered";
+    }
+
+    if (!editForm.profilePicture) {
+      errors.profilePicture = "Profile pic is mandatory";
+    }
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+      const response = await apiClient.patch("/api/profile", {
+        name,
+        email,
+        profilePicture: editForm.profilePicture,
+      });
+      const updatedUser = response.data.user;
+
+      setProfile((prev) => ({
+        ...prev,
+        user: updatedUser,
+      }));
+      dispatch(UPDATE_CURRENT_USER(updatedUser));
+      setIsEditing(false);
+      setEmailAvailability({ status: "idle", email: "" });
+      setNotification({
+        type: "success",
+        message: "Profile updated successfully",
+      });
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: error?.response?.data?.error || "Unable to update profile",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  useEffect(
+    () => () => {
+      revokeSelectedImageUrl();
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!isEditing) {
+      return undefined;
+    }
+
+    const normalizedEmail = editForm.email.trim().toLowerCase();
+    const currentEmail = String(profile.user?.email || "").trim().toLowerCase();
+
+    if (!normalizedEmail || !emailPattern.test(normalizedEmail)) {
+      setEmailAvailability({ status: "idle", email: normalizedEmail });
+      return undefined;
+    }
+
+    if (normalizedEmail === currentEmail) {
+      setEmailAvailability({ status: "current", email: normalizedEmail });
+      return undefined;
+    }
+
+    if (emailAvailabilityCacheRef.current[normalizedEmail] !== undefined) {
+      setEmailAvailability({
+        status: emailAvailabilityCacheRef.current[normalizedEmail]
+          ? "available"
+          : "unavailable",
+        email: normalizedEmail,
+      });
+      return undefined;
+    }
+
+    setEmailAvailability({ status: "checking", email: normalizedEmail });
+    const requestId = emailCheckRequestRef.current + 1;
+    emailCheckRequestRef.current = requestId;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await apiClient.get("/api/auth/check-email", {
+          params: { email: normalizedEmail },
+        });
+
+        if (emailCheckRequestRef.current !== requestId) {
+          return;
+        }
+
+        const available = Boolean(response.data?.available);
+        emailAvailabilityCacheRef.current[normalizedEmail] = available;
+        setEmailAvailability({
+          status: available ? "available" : "unavailable",
+          email: normalizedEmail,
+        });
+      } catch (error) {
+        if (emailCheckRequestRef.current === requestId) {
+          setEmailAvailability({ status: "idle", email: normalizedEmail });
+        }
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [editForm.email, isEditing, profile.user?.email]);
 
   if (loading) {
     return <MyProfileSkeleton />;
@@ -178,31 +423,179 @@ export default function MyProfile({ setAlign }) {
 
   return (
     <div className="profile-page mx-auto w-full max-w-5xl">
-      <div className="border-b pb-5 text-center">
-        <div className="mx-auto my-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-gray-200">
-          {user.profilePicture ? (
-            <img
-              src={user.profilePicture}
-              alt={user.name}
-              className="h-full w-full object-cover mt-1"
-            />
-          ) : (
-            <UserCircle size={48} />
+      <ErrorNotification
+        message={notification.message}
+        type={notification.type}
+        duration={3500}
+        onHide={() => setNotification({ type: "info", message: "" })}
+      />
+      <div className="border-b pb-3 mt-3">
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+              {user.profilePicture ? (
+                <img
+                  src={user.profilePicture}
+                  alt={user.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <UserCircle size={52} />
+              )}
+            </div>
+            <div>
+              <h1 className="app-strong-text text-2xl font-bold">My Profile</h1>
+              <p className="app-muted-text mt-1 text-sm">
+                Manage your account details
+              </p>
+            </div>
+          </div>
+          {!isEditing && (
+            <button
+              className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              type="button"
+              onClick={startEditing}
+            >
+              <Edit3 size={16} />
+              Edit Profile
+            </button>
           )}
         </div>
-        <h1 className="app-strong-text text-2xl font-bold">My Profile</h1>
       </div>
 
       <div className="grid grid-cols-1 gap-4 border-b py-5 sm:grid-cols-2">
         <div>
           <p className="app-muted-text text-sm">Name</p>
-          <p className="app-strong-text break-words font-semibold">{user.name}</p>
+          <p className="app-strong-text break-words font-semibold">
+            {user.name}
+          </p>
         </div>
         <div>
           <p className="app-muted-text text-sm">Email</p>
-          <p className="app-strong-text break-words font-semibold">{user.email}</p>
+          <p className="app-strong-text break-words font-semibold">
+            {user.email}
+          </p>
         </div>
       </div>
+
+      {isEditing && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center">
+          <form
+            className="confirm-card w-full max-w-2xl rounded border p-5 shadow-xl sm:p-6"
+            onSubmit={handleSaveProfile}
+          >
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="app-strong-text text-xl font-bold">
+                  Edit Profile
+                </h2>
+                <p className="app-muted-text mt-1 text-sm">
+                  Update your account details
+                </p>
+              </div>
+              <button
+                aria-label="Close edit profile"
+                className="rounded p-2 text-gray-500 transition hover:text-red-600"
+                disabled={savingProfile || picLoading}
+                type="button"
+                onClick={cancelEditing}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <InputText
+                name="name"
+                label="Name"
+                value={editForm.name}
+                setValue={(value) => updateEditField("name", value)}
+                type="text"
+                required
+                error={formErrors.name}
+                containerClassName="mb-0"
+              />
+              <InputText
+                name="email"
+                label="Email"
+                value={editForm.email}
+                setValue={(value) => updateEditField("email", value)}
+                type="text"
+                required
+                error={formErrors.email}
+                containerClassName="mb-0"
+              />
+              {editForm.email.trim() &&
+                emailPattern.test(editForm.email.trim().toLowerCase()) && (
+                  <div className="-mt-2 sm:col-start-2 text-sm">
+                    {emailAvailability.status === "checking" && (
+                      <span className="app-muted-text">Checking email...</span>
+                    )}
+                    {emailAvailability.status === "available" && (
+                      <span className="text-green-600">Email available</span>
+                    )}
+                    {emailAvailability.status === "current" && (
+                      <span className="app-muted-text">
+                        Current email address
+                      </span>
+                    )}
+                    {emailAvailability.status === "unavailable" && (
+                      <span className="text-red-600">
+                        Email is already registered
+                      </span>
+                    )}
+                  </div>
+                )}
+              <div className="sm:col-span-2">
+                <InputFileUpload
+                  label="Profile pic"
+                  name="profile_file_upload"
+                  value={editForm.profilePicture}
+                  setValue={handleProfileImageSelect}
+                  picLoading={picLoading}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                  error={formErrors.profilePicture}
+                  previewUrl={editForm.profilePicture}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">
+              <button
+                className="rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={savingProfile || picLoading}
+                type="button"
+                onClick={cancelEditing}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                disabled={
+                  savingProfile ||
+                  picLoading ||
+                  emailAvailability.status === "checking" ||
+                  emailAvailability.status === "unavailable"
+                }
+                type="submit"
+              >
+                {savingProfile ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {selectedImageUrl && (
+        <ProfileImageEditor
+          imageSrc={selectedImageUrl}
+          onApply={uploadEditedProfileImage}
+          onCancel={revokeSelectedImageUrl}
+          onReplaceImage={handleProfileImageSelect}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 py-5 md:grid-cols-4">
         <div className="profile-stat-card rounded border p-4 text-center">

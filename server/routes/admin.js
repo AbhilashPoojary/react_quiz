@@ -1,6 +1,7 @@
 const express = require("express");
 const {
   dashboard,
+  questionBank,
   listUsers,
   getAdminUser,
   activateUser,
@@ -33,6 +34,7 @@ const AdminRouter = express.Router();
 AdminRouter.use(verifyToken, requireAdmin);
 
 AdminRouter.get("/dashboard", dashboard);
+AdminRouter.get("/question-bank", questionBank);
 AdminRouter.patch("/settings/quiz-setup-version", updateQuizSetupVersion);
 AdminRouter.get("/users", listUsers);
 AdminRouter.post("/users/bulk/activate", bulkActivateUsers);

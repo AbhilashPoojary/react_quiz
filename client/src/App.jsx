@@ -39,6 +39,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEvents from "./pages/admin/AdminEvents";
 import AdminCreateEvent from "./pages/admin/AdminCreateEvent";
 import AdminEditEvent from "./pages/admin/AdminEditEvent";
+import AdminQuestionBank from "./pages/admin/AdminQuestionBank";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminUserDetails from "./pages/admin/AdminUserDetails";
 import AdminNotifications from "./pages/admin/AdminNotifications";
@@ -355,11 +356,26 @@ function App() {
           }`}
         >
           <div className="justify-self-start">
-            <img
-              src={logo}
-              alt="logo"
-              className="m-auto max-h-14 max-w-[180px] sm:max-h-none sm:max-w-none"
-            />
+            {isAuthPage ? (
+              <img
+                src={logo}
+                alt="logo"
+                className="m-auto max-h-14 max-w-[180px] sm:max-h-none sm:max-w-none"
+              />
+            ) : (
+              <button
+                aria-label="Go to quiz setup"
+                className="block focus:outline-none"
+                type="button"
+                onClick={() => navigate("/info")}
+              >
+                <img
+                  src={logo}
+                  alt="logo"
+                  className="m-auto max-h-14 max-w-[180px] sm:max-h-none sm:max-w-none"
+                />
+              </button>
+            )}
           </div>
           {!isAuthPage && (
             <div className="justify-self-end">
@@ -571,6 +587,7 @@ function App() {
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="events" element={<AdminEvents />} />
+            <Route path="question-bank" element={<AdminQuestionBank />} />
             <Route path="events/create" element={<AdminCreateEvent />} />
             <Route path="events/:id/edit" element={<AdminEditEvent />} />
             <Route path="users" element={<AdminUsers />} />

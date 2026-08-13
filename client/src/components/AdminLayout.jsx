@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import {
   BarChart3,
   Bell,
+  BookOpen,
   CalendarDays,
   LogOut,
   Mail,
@@ -29,6 +30,10 @@ export default function AdminLayout({ logoutUser }) {
           <NavLink className={navLinkClass} to="/admin/events" end>
             <CalendarDays size={18} />
             Manage Events
+          </NavLink>
+          <NavLink className={navLinkClass} to="/admin/question-bank" end>
+            <BookOpen size={18} />
+            Question Bank
           </NavLink>
           <NavLink className={navLinkClass} to="/admin/users" end>
             <Users size={18} />

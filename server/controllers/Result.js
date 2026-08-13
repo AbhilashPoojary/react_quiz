@@ -417,6 +417,57 @@ const profile = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const profilePicture = String(req.body.profilePicture || "").trim();
+
+    if (!name) {
+      return res.status(400).json({ error: "Name is mandatory" });
+    }
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is mandatory" });
+    }
+
+    const existingUser = await User.findOne({
+      email,
+      _id: { $ne: req.user.userId },
+    }).select("_id");
+
+    if (existingUser) {
+      return res.status(409).json({ error: "Email is already registered" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.userId,
+      {
+        name,
+        email,
+        ...(profilePicture ? { profilePicture } : {}),
+      },
+      { new: true, runValidators: true }
+    ).select("name email profilePicture role");
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await Result.updateMany(
+      { userId: req.user.userId },
+      {
+        name: updatedUser.name,
+        profilePicture: updatedUser.profilePicture,
+      }
+    );
+
+    res.status(200).json({ user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const notifications = async (req, res) => {
   try {
     const [items, userNotifications] = await Promise.all([
@@ -889,6 +940,7 @@ module.exports = {
   allresult,
   searchResult,
   profile,
+  updateProfile,
   notifications,
   unreadNotificationCount,
   markNotificationsRead,
