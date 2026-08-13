@@ -7,13 +7,10 @@ export const allplayersCall = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const apiUrl = "/api/search";
-      console.log(payload);
       const res = await apiClient.post(apiUrl, payload);
-      console.log(res.data);
       return res.data;
     } catch (error) {
       if (error.response) {
-        console.log(error);
         return rejectWithValue(error.response);
       } else {
         throw error;

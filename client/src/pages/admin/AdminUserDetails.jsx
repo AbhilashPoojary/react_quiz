@@ -21,6 +21,68 @@ function InfoCard({ label, value }) {
   );
 }
 
+function SkeletonBlock({ className = "" }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-gray-300 dark:bg-gray-600 ${className}`}
+    />
+  );
+}
+
+function AdminUserDetailsSkeleton() {
+  return (
+    <div>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <SkeletonBlock className="h-8 w-40" />
+          <SkeletonBlock className="mt-2 h-4 w-56 max-w-full" />
+        </div>
+        <SkeletonBlock className="h-10 w-32" />
+      </div>
+
+      <section className="admin-card rounded border p-5">
+        <div className="mb-5 flex flex-col items-center gap-4 border-b pb-5 text-center sm:flex-row sm:text-left">
+          <SkeletonBlock className="h-24 w-24 rounded-full" />
+          <div className="min-w-0">
+            <SkeletonBlock className="h-7 w-44 max-w-full" />
+            <SkeletonBlock className="mt-2 h-4 w-64 max-w-full" />
+            <SkeletonBlock className="mt-3 h-7 w-20" />
+          </div>
+        </div>
+        <SkeletonBlock className="mb-4 h-6 w-44" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div className="rounded border p-4" key={index}>
+              <SkeletonBlock className="h-4 w-20" />
+              <SkeletonBlock className="mt-2 h-5 w-36 max-w-full" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-card mt-5 rounded border p-5">
+        <SkeletonBlock className="mb-4 h-6 w-36" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div className="rounded border p-4" key={index}>
+              <SkeletonBlock className="h-4 w-24" />
+              <SkeletonBlock className="mt-2 h-6 w-12" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-card mt-5 rounded border p-5">
+        <SkeletonBlock className="mb-4 h-6 w-36" />
+        <div className="flex flex-wrap gap-3">
+          <SkeletonBlock className="h-10 w-24" />
+          <SkeletonBlock className="h-10 w-28" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function AdminUserDetails() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -58,7 +120,7 @@ export default function AdminUserDetails() {
   };
 
   if (loading) {
-    return <div className="app-muted-text py-10 text-center">Loading user...</div>;
+    return <AdminUserDetailsSkeleton />;
   }
 
   if (!payload) {

@@ -5,6 +5,7 @@ import ErrorNotification from "../components/ErrorNotification";
 import InputPassword from "../components/InputPassword";
 import { selectCurrentUser, UPDATE_PASSWORD_EXPIRY } from "../slice/authSlice";
 import apiClient from "../utils/apiClient";
+import { validatePasswordStrength } from "../utils/passwordValidation";
 
 export default function ChangePassword({ setAlign }) {
   const navigate = useNavigate();
@@ -38,6 +39,11 @@ export default function ChangePassword({ setAlign }) {
 
     if (!password.trim()) {
       errors.password = "New Password is mandatory";
+    } else {
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        errors.password = passwordError;
+      }
     }
 
     if (!confirmPassword.trim()) {

@@ -15,6 +15,7 @@ import InputText from "./InputText";
 import InputFileUpload from "./InputFileUpload";
 import ErrorNotification from "./ErrorNotification";
 import ProfileImageEditor from "./ProfileImageEditor";
+import { validatePasswordStrength } from "../utils/passwordValidation";
 
 const allowedProfileImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxProfileImageSize = 5 * 1024 * 1024;
@@ -148,6 +149,11 @@ export default function Signup({ switchToSignIn, setAlign }) {
 
     if (!password.trim()) {
       errors.password = "Password is mandatory";
+    } else {
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        errors.password = passwordError;
+      }
     }
 
     if (!confirmpassword.trim()) {

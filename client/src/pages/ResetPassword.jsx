@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import ErrorNotification from "../components/ErrorNotification";
 import InputPassword from "../components/InputPassword";
 import apiClient from "../utils/apiClient";
+import { validatePasswordStrength } from "../utils/passwordValidation";
 
 export default function ResetPassword({ setAlign }) {
   const { token } = useParams();
@@ -23,6 +24,11 @@ export default function ResetPassword({ setAlign }) {
 
     if (!password.trim()) {
       errors.password = "New Password is mandatory";
+    } else {
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        errors.password = passwordError;
+      }
     }
 
     if (!confirmPassword.trim()) {

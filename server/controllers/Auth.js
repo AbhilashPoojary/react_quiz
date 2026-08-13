@@ -10,6 +10,7 @@ const {
 } = require("../utils/email");
 const { sendTemplateEmail } = require("../services/emailTemplateService");
 const { getPasswordExpiryInfo } = require("../utils/passwordExpiry");
+const { validatePasswordStrength } = require("../utils/passwordValidation");
 
 dotenv.config();
 
@@ -29,6 +30,12 @@ const validatePasswordResetPayload = (password, confirmPassword) => {
     return "Passwords should match";
   }
 
+  const passwordStrengthError = validatePasswordStrength(password);
+
+  if (passwordStrengthError) {
+    return passwordStrengthError;
+  }
+
   return "";
 };
 
@@ -44,10 +51,15 @@ const sanitizeUser = (user) => {
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
 const register = async (req, res) => {
-  console.log(SECRET);
   const { password, email, role, ...fields } = req.body;
   const lowercaseEmail = normalizeEmail(email);
   try {
+    const passwordStrengthError = validatePasswordStrength(password || "");
+
+    if (passwordStrengthError) {
+      return res.status(400).json({ error: passwordStrengthError });
+    }
+
     const existingUser = await User.findOne({ email: lowercaseEmail }).select("_id");
 
     if (existingUser) {
@@ -82,7 +94,6 @@ const register = async (req, res) => {
     );
     res.status(201).json({ token, user: safeUser, passwordExpiry });
   } catch (error) {
-    console.log(SECRET);
     if (error.code === 11000 && error.keyPattern?.email) {
       return res.status(409).json({ error: "Email is already registered" });
     }
@@ -100,7 +111,6 @@ const checkEmail = async (req, res) => {
     }
 
     const existingUser = await User.findOne({ email }).select("_id");
-    console.log(existingUser);
     res.status(200).json({ available: !existingUser });
   } catch (error) {
     res.status(500).json({ error: "Unable to check email availability" });
@@ -108,7 +118,6 @@ const checkEmail = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  console.log(req.body);
   try {
     const { email, password, forceLogin = false } = req.body;
     const lowercaseEmail = normalizeEmail(email);

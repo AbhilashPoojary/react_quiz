@@ -8,6 +8,7 @@ const ResultRouter = require("./routes/result");
 const AdminRouter = require("./routes/admin");
 const ChallengeRouter = require("./routes/challenge");
 const SettingsRouter = require("./routes/settings");
+const requestLogger = require("./middleware/requestLogger");
 const connectDB = require("./db/connect");
 const cors = require("cors");
 
@@ -25,6 +26,7 @@ connectDB();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: "50mb" }));
+app.use(requestLogger);
 
 app.use("/auth", AuthRouter);
 app.use("/api/auth", AuthRouter);

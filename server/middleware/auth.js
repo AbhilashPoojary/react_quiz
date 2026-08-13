@@ -47,6 +47,8 @@ const verifyTokenWithOptions = async (req, res, next, options = {}) => {
 
     req.user = decoded;
     req.user.role = user.role || "USER";
+    req.user.name = user.name || decoded.username || "";
+    req.user.userId = user._id.toString();
     req.user.passwordExpiry = passwordExpiry;
     next();
   } catch (error) {

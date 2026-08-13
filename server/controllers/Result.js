@@ -171,7 +171,6 @@ const getQuestions = async (req, res) => {
 
 const result = async (req, res) => {
   const { userId, ...others } = req.body;
-  console.log(req.body);
   try {
     const score = toNumber(others.score);
     const questionCount = Math.max(1, toNumber(others.questionCount, 10));
@@ -267,7 +266,6 @@ const allresult = async (req, res) => {
 
 const searchResult = async (req, res) => {
   const { category, difficulty, questionCount } = req.body;
-  console.log(category, difficulty, questionCount);
   try {
     const matchStage = {};
     if (category !== undefined && category !== null && category !== "") {
