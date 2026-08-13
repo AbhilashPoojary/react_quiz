@@ -184,7 +184,7 @@ export default function AdminQuestionBank() {
     try {
       setLoading(true);
       setError("");
-      const response = await apiClient.get("/api/questions/unique-existing");
+      const response = await apiClient.get("/api/admin/question-bank");
       setPayload(response.data);
     } catch (error) {
       setError(error?.response?.data?.error || "Unable to fetch question bank");
