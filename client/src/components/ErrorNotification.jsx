@@ -44,12 +44,12 @@ export default function ErrorNotification({
   const style = variantStyles[type] || variantStyles.error;
 
   return (
-    <div className="error-message show absolute top-2 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 transform">
+    <div className="error-message show fixed left-1/2 top-4 z-[70] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 transform">
       <div
-        className={`flex items-center p-2 text-sm border rounded-lg ${style.container}`}
+        className={`flex items-start gap-2 rounded-lg border p-3 text-sm shadow-lg ${style.container}`}
       >
         <svg
-          className={`flex-shrink-0 inline w-3 h-3 ${style.icon}`}
+          className={`mt-0.5 inline h-4 w-4 flex-shrink-0 ${style.icon}`}
           aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           fill="currentColor"
@@ -58,8 +58,10 @@ export default function ErrorNotification({
           <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z" />
         </svg>
         <span className="sr-only">Info</span>
-        <div>
-          <span className="font-medium pl-2">{notificationText}</span>
+        <div className="min-w-0 flex-1">
+          <span className="block break-words font-medium leading-5">
+            {notificationText}
+          </span>
         </div>
       </div>
     </div>

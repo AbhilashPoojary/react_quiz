@@ -68,17 +68,14 @@ main {
   scrollbar-width: thin;
 }
 .error-message {
-  overflow: hidden;
-  height: 0;
   opacity: 0;
-  width: auto;
-  transition: height 300ms 0ms, opacity 300ms 0ms, width 300ms 0ms;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 220ms ease, transform 220ms ease;
 }
 .error-message.show {
-  height: 50px;
-  width: auto;
   opacity: 1;
-  transition: height 400ms 0ms, opacity 400ms 0ms, width 400ms 0ms;
+  transform: translate(-50%, 0);
 }
 .trsansit-name.hide {
   height: 0;
