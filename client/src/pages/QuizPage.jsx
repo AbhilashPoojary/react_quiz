@@ -17,6 +17,7 @@ export default function QuizPage({
   setQuizData,
   setQuizIndex,
   enableTimer,
+  showAnswerFeedback,
   timerMode,
   totalDuration,
   timePerQuestion,
@@ -49,6 +50,7 @@ export default function QuizPage({
           setScore={setScore}
           score={score}
           enableTimer={enableTimer}
+          showAnswerFeedback={showAnswerFeedback}
           timerMode={timerMode}
           totalDuration={totalDuration}
           timePerQuestion={timePerQuestion}

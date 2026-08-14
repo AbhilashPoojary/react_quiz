@@ -1,9 +1,19 @@
 import React from "react";
 import he from "he";
 
-export default function QuizOptions({ quizData, checkAnswer, bg }) {
+export default function QuizOptions({
+  quizData,
+  checkAnswer,
+  bg,
+  disabled = false,
+  danger = false,
+}) {
   return (
-    <div className="quiz-options-panel border rounded p-5 mb-5">
+    <div
+      className={`quiz-options-panel mb-5 rounded border p-5 ${
+        danger ? "quiz-options-danger" : ""
+      }`}
+    >
       <h3 className="app-strong-text text-center">
         {quizData?.question ? he.decode(quizData?.question) : "Loading..."}
       </h3>
@@ -13,6 +23,7 @@ export default function QuizOptions({ quizData, checkAnswer, bg }) {
           <button
             key={index}
             className={`${bg[index]?.bgc} ${bg[index]?.fgc} quiz-option-btn btn rounded p-2`}
+            disabled={disabled}
             onClick={(e) => checkAnswer(item, index)}
           >
             {item ? he.decode(item) : "Loading..."}

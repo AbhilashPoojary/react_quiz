@@ -22,15 +22,15 @@ export function CustomCheckbox({
         onChange={(event) => onChange?.(event.target.checked)}
       />
       <span
-        className={`relative h-6 w-11 rounded-full border transition dark:border-gray-600 ${
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition dark:border-gray-600 ${
           checked
             ? "border-red-600 bg-red-600"
             : "border-gray-300 bg-gray-200 dark:bg-gray-700"
         }`}
       >
         <span
-          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-            checked ? "translate-x-5" : ""
+          className={`absolute left-0.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </span>

@@ -3,6 +3,7 @@ import { Copy, Share2, Swords, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Categories from "../data/Categories";
 import Dropdown from "../components/Dropdown";
+import { CustomCheckbox } from "../components/CustomSelectionControls";
 import ConfirmPopup from "../components/ConfirmPopup";
 import ErrorNotification from "../components/ErrorNotification";
 import apiClient from "../utils/apiClient";
@@ -34,6 +35,7 @@ export default function ChallengeCreate({ setAlign }) {
   const [difficulty, setDifficulty] = useState("");
   const [questionCount, setQuestionCount] = useState(10);
   const [duration, setDuration] = useState(10);
+  const [showAnswerFeedback, setShowAnswerFeedback] = useState(true);
   const [loading, setLoading] = useState(false);
   const [createdChallenge, setCreatedChallenge] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -89,6 +91,7 @@ export default function ChallengeCreate({ setAlign }) {
         difficulty,
         questionCount,
         duration,
+        showAnswerFeedback,
       });
       setCreatedChallenge(response.data);
       setNotification({ type: "success", message: "Challenge created" });
@@ -185,6 +188,14 @@ export default function ChallengeCreate({ setAlign }) {
                 state={duration}
                 setState={setDuration}
                 dropdownId="challenge-duration"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <CustomCheckbox
+                checked={showAnswerFeedback}
+                label="Show Answer Feedback"
+                name="challenge-answer-feedback"
+                onChange={setShowAnswerFeedback}
               />
             </div>
           </div>

@@ -202,6 +202,7 @@ const createChallenge = async (req, res) => {
       questionCount,
       duration,
       timedQuiz = true,
+      showAnswerFeedback = true,
       timerMode = "TOTAL",
       totalDuration,
       timePerQuestion,
@@ -210,6 +211,7 @@ const createChallenge = async (req, res) => {
     const normalizedDuration = Number(duration);
     const normalizedTimerMode = String(timerMode || "TOTAL").toUpperCase();
     const normalizedTimedQuiz = Boolean(timedQuiz);
+    const normalizedShowAnswerFeedback = showAnswerFeedback !== false;
     const normalizedTotalDuration =
       totalDuration === null || totalDuration === undefined
         ? null
@@ -284,6 +286,7 @@ const createChallenge = async (req, res) => {
         questionCount: normalizedQuestionCount,
         duration: normalizedDuration,
         timedQuiz: normalizedTimedQuiz,
+        showAnswerFeedback: normalizedShowAnswerFeedback,
         timerMode: normalizedTimedQuiz ? normalizedTimerMode : "TOTAL",
         totalDuration:
           normalizedTimedQuiz && normalizedTimerMode === "TOTAL"
@@ -432,6 +435,10 @@ const getChallengeQuestions = async (req, res) => {
           questionOrder: item.questionOrder,
           question: item.question,
           answers: item.options,
+          correctAnswer:
+            challenge.config?.showAnswerFeedback === false
+              ? undefined
+              : item.correctAnswer,
           category: item.category,
           difficulty: item.difficulty,
         })),

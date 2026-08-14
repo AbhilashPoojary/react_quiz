@@ -4,6 +4,7 @@ import Dropdown from "./Dropdown";
 import InputCheckbox from "./InputCheckbox";
 import InputText from "./InputText";
 import ErrorNotification from "./ErrorNotification";
+import { CustomCheckbox } from "./CustomSelectionControls";
 
 export default function QuizDetails({
   handleSubmit,
@@ -23,6 +24,8 @@ export default function QuizDetails({
   setIsOpen,
   enableTimer,
   setEnableTimer,
+  showAnswerFeedback = true,
+  setShowAnswerFeedback,
   formErrors = {},
   nameRules,
   setFormErrors,
@@ -194,6 +197,14 @@ export default function QuizDetails({
           label="Timed Quiz"
           name="timer"
         />
+        <div className="flex items-start">
+          <CustomCheckbox
+            checked={showAnswerFeedback}
+            label="Show Answer Feedback"
+            name="answerFeedback"
+            onChange={setShowAnswerFeedback}
+          />
+        </div>
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
           <button
             type="submit"

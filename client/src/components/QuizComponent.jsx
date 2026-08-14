@@ -19,6 +19,7 @@ export default function QuizComponent({
   setScore,
   nextQuestion,
   enableTimer,
+  showAnswerFeedback = true,
   timerMode,
   totalDuration,
   timePerQuestion,
@@ -36,7 +37,14 @@ export default function QuizComponent({
   const initialCounter =
     effectiveTimerMode === "TOTAL" ? totalTimeLimit : questionTimeLimit;
   const [counter, setCounter] = useState(initialCounter);
+  const dangerThreshold = Math.min(5, Math.ceil(questionTimeLimit / 2));
+  const isTimerDanger =
+    enableTimer &&
+    effectiveTimerMode === "PER_QUESTION" &&
+    counter > 0 &&
+    counter <= dangerThreshold;
   const [showConfirm, setShowConfirm] = useState(false);
+  const [optionLocked, setOptionLocked] = useState(false);
   const timeoutHandledRef = useRef(false);
   const nextQuestionRef = useRef(nextQuestion);
   const recordAnswerRef = useRef(recordAnswer);
@@ -65,15 +73,26 @@ export default function QuizComponent({
   }, [finishQuizWithUnanswered]);
 
   const checkAnswer = (item, index) => {
+    if (optionLocked) {
+      return;
+    }
+
+    setOptionLocked(true);
     let updatedBg = [...bg];
-    if (item === quizData.correct_answer) {
+    const isCorrect = item === quizData.correct_answer;
+
+    if (isCorrect) {
       setScore((prevScore) => prevScore + 10);
+    }
+
+    if (showAnswerFeedback && isCorrect) {
       updatedBg[index] = { bgc: "bg-green-600", fgc: "text-white" };
-    } else {
+    } else if (showAnswerFeedback) {
       updatedBg[index] = { bgc: "bg-red-600", fgc: "text-white" };
       const correctIndex = quizData?.correctAnswerIndex;
       updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
     }
+
     recordAnswer(item);
     setBg(updatedBg);
     const elapsedSeconds = enableTimer && effectiveTimerMode === "PER_QUESTION"
@@ -86,7 +105,8 @@ export default function QuizComponent({
         setCounter(questionTimeLimit);
       }
       setBg(defaultOptionStyles);
-    }, 500);
+      setOptionLocked(false);
+    }, showAnswerFeedback ? 500 : 150);
   };
 
   useEffect(() => {
@@ -96,6 +116,7 @@ export default function QuizComponent({
       setCounter(questionTimeLimit);
     }
     setBg(defaultOptionStyles);
+    setOptionLocked(false);
   }, [quizIndex, effectiveTimerMode, questionTimeLimit]);
 
   useEffect(() => {
@@ -128,18 +149,20 @@ export default function QuizComponent({
       return undefined;
     }
 
-    setBg((prevBg) => {
-      const updatedBg = [...prevBg];
-      let correctIndex = quizData?.correctAnswerIndex;
-      updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
-      return updatedBg;
-    });
+    if (showAnswerFeedback) {
+      setBg((prevBg) => {
+        const updatedBg = [...prevBg];
+        let correctIndex = quizData?.correctAnswerIndex;
+        updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
+        return updatedBg;
+      });
+    }
     recordAnswerRef.current("");
     setTimeConsumed((prevstate) => prevstate + questionTimeLimit);
 
     const timeout = setTimeout(() => {
       nextQuestionRef.current();
-    }, 500);
+    }, showAnswerFeedback ? 500 : 150);
 
     return () => clearTimeout(timeout);
   }, [
@@ -149,6 +172,7 @@ export default function QuizComponent({
     quizData?.correctAnswerIndex,
     questionTimeLimit,
     setTimeConsumed,
+    showAnswerFeedback,
     totalTimeLimit,
   ]);
 
@@ -186,7 +210,13 @@ export default function QuizComponent({
               </span>
             )}
           </div>
-          <QuizOptions quizData={quizData} checkAnswer={checkAnswer} bg={bg} />
+          <QuizOptions
+            quizData={quizData}
+            checkAnswer={checkAnswer}
+            bg={bg}
+            disabled={optionLocked}
+            danger={isTimerDanger}
+          />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
               Total time consumed {timeConsumed} seconds

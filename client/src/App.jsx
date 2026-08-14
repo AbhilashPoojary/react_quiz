@@ -53,6 +53,7 @@ function App() {
   const [questionType, setQuestionType] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
   const [enableTimer, setEnableTimer] = useState(false);
+  const [showAnswerFeedback, setShowAnswerFeedback] = useState(true);
   const [timerMode, setTimerMode] = useState("PER_QUESTION");
   const [totalDuration, setTotalDuration] = useState(null);
   const [timePerQuestion, setTimePerQuestion] = useState(20);
@@ -416,6 +417,7 @@ function App() {
                   name={name}
                   category={category}
                   enableTimer={enableTimer}
+                  showAnswerFeedback={showAnswerFeedback}
                   difficulty={difficulty}
                   questionCount={questionCount}
                   setCategoty={setCategoty}
@@ -424,6 +426,7 @@ function App() {
                   setQuestionType={setQuestionType}
                   setQuestionCount={setQuestionCount}
                   setEnableTimer={setEnableTimer}
+                  setShowAnswerFeedback={setShowAnswerFeedback}
                   timerMode={timerMode}
                   setTimerMode={setTimerMode}
                   totalDuration={totalDuration}
@@ -453,6 +456,7 @@ function App() {
                   quizIndex={quizIndex}
                   setQuizIndex={setQuizIndex}
                   enableTimer={enableTimer}
+                  showAnswerFeedback={showAnswerFeedback}
                   timerMode={timerMode}
                   totalDuration={totalDuration}
                   timePerQuestion={timePerQuestion}

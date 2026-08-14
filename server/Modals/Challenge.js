@@ -47,6 +47,10 @@ const ChallengeSchema = new mongoose.Schema(
         type: Boolean,
         default: true,
       },
+      showAnswerFeedback: {
+        type: Boolean,
+        default: true,
+      },
       timerMode: {
         type: String,
         enum: ["TOTAL", "PER_QUESTION"],

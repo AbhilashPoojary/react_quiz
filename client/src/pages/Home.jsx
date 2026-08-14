@@ -17,11 +17,13 @@ export default function Home({
   questionCount,
   category,
   enableTimer,
+  showAnswerFeedback,
   setCategoty,
   setDifficulty,
   setQuestionType,
   setQuestionCount,
   setEnableTimer,
+  setShowAnswerFeedback,
   timerMode,
   setTimerMode,
   totalDuration,
@@ -148,6 +150,7 @@ export default function Home({
         questionType={questionType}
         questionCount={questionCount}
         enableTimer={enableTimer}
+        showAnswerFeedback={showAnswerFeedback}
         timerMode={timerMode}
         totalDuration={totalDuration}
         timePerQuestion={timePerQuestion}
@@ -158,6 +161,7 @@ export default function Home({
         setQuestionType={setQuestionType}
         setQuestionCount={setQuestionCount}
         setEnableTimer={setEnableTimer}
+        setShowAnswerFeedback={setShowAnswerFeedback}
         setTimerMode={setTimerMode}
         setTotalDuration={setTotalDuration}
         setTimePerQuestion={setTimePerQuestion}
@@ -186,7 +190,9 @@ export default function Home({
           setQuestionType={setQuestionType}
           setQuestionCount={setQuestionCount}
           enableTimer={enableTimer}
+          showAnswerFeedback={showAnswerFeedback}
           setEnableTimer={setEnableTimer}
+          setShowAnswerFeedback={setShowAnswerFeedback}
           Popper={Popper}
           referenceElementRef={referenceElementRef}
           isOpen={isOpen}

@@ -18,10 +18,12 @@ export default function ChallengePlay({ setAlign }) {
   const [payload, setPayload] = useState(null);
   const [quizIndex, setQuizIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
+  const [bg, setBg] = useState(defaultOptionStyles);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [optionLocked, setOptionLocked] = useState(false);
   const startedAtRef = useRef(Date.now());
   const answersRef = useRef([]);
   const submittedRef = useRef(false);
@@ -58,7 +60,15 @@ export default function ChallengePlay({ setAlign }) {
   const currentQuestion = questions[quizIndex];
   const timerConfig = payload?.config || {};
   const timedQuiz = timerConfig.timedQuiz !== false;
+  const showAnswerFeedback = timerConfig.showAnswerFeedback !== false;
   const timerMode = timerConfig.timerMode || "TOTAL";
+  const questionTimeLimit = Number(timerConfig.timePerQuestion || 0);
+  const dangerThreshold = Math.min(5, Math.ceil(questionTimeLimit / 2));
+  const isTimerDanger =
+    timedQuiz &&
+    timerMode === "PER_QUESTION" &&
+    remainingSeconds > 0 &&
+    remainingSeconds <= dangerThreshold;
   const timeTaken = useMemo(
     () => Math.round((Date.now() - startedAtRef.current) / 1000),
     [remainingSeconds]
@@ -85,11 +95,29 @@ export default function ChallengePlay({ setAlign }) {
     }
   };
 
-  const recordAnswer = (selectedAnswer = "") => {
+  const moveToNextQuestion = (nextAnswers) => {
+    if (quizIndex + 1 < questions.length) {
+      setQuizIndex((prev) => prev + 1);
+      setBg(defaultOptionStyles);
+      setOptionLocked(false);
+      if (timedQuiz && timerMode === "PER_QUESTION") {
+        setRemainingSeconds(Number(timerConfig.timePerQuestion || 0));
+      }
+    } else {
+      submitChallenge(nextAnswers);
+    }
+  };
+
+  const recordAnswer = (selectedAnswer = "", optionIndex) => {
+    if (optionLocked || submittedRef.current) {
+      return;
+    }
+
     if (!currentQuestion) {
       return;
     }
 
+    setOptionLocked(true);
     const nextAnswers = [
       ...answersRef.current,
       {
@@ -101,33 +129,78 @@ export default function ChallengePlay({ setAlign }) {
     answersRef.current = nextAnswers;
     setAnswers(nextAnswers);
 
-    if (quizIndex + 1 < questions.length) {
-      setQuizIndex((prev) => prev + 1);
-      if (timedQuiz && timerMode === "PER_QUESTION") {
-        setRemainingSeconds(Number(timerConfig.timePerQuestion || 0));
-      }
+    if (showAnswerFeedback) {
+      setBg((prevBg) => {
+        const updatedBg = [...prevBg];
+        const correctIndex = currentQuestion.answers?.findIndex(
+          (answer) => answer === currentQuestion.correctAnswer
+        );
+        const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+
+        if (isCorrect && optionIndex !== undefined) {
+          updatedBg[optionIndex] = { bgc: "bg-green-600", fgc: "text-white" };
+        } else {
+          if (optionIndex !== undefined) {
+            updatedBg[optionIndex] = { bgc: "bg-red-600", fgc: "text-white" };
+          }
+
+          if (correctIndex >= 0) {
+            updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
+          }
+        }
+
+        return updatedBg;
+      });
+      setTimeout(() => moveToNextQuestion(nextAnswers), 500);
     } else {
-      submitChallenge(nextAnswers);
+      setTimeout(() => moveToNextQuestion(nextAnswers), 150);
+    }
+  };
+
+  useEffect(() => {
+    setBg(defaultOptionStyles);
+    setOptionLocked(false);
+  }, [quizIndex]);
+
+  const completeRemainingAnswers = () => {
+    const answeredOrders = new Set(
+      answersRef.current.map((item) => item.questionOrder)
+    );
+    const unanswered = questions
+      .filter((item) => !answeredOrders.has(item.questionOrder))
+      .map((item) => ({
+        questionOrder: item.questionOrder,
+        selectedAnswer: "",
+      }));
+    submitChallenge([...answersRef.current, ...unanswered]);
+  };
+
+  const handleTimerExpired = () => {
+    if (timerMode === "PER_QUESTION") {
+      if (showAnswerFeedback) {
+        setBg((prevBg) => {
+          const updatedBg = [...prevBg];
+          const correctIndex = currentQuestion?.answers?.findIndex(
+            (answer) => answer === currentQuestion?.correctAnswer
+          );
+
+          if (correctIndex >= 0) {
+            updatedBg[correctIndex] = { bgc: "bg-green-600", fgc: "text-white" };
+          }
+
+          return updatedBg;
+        });
+      }
+      recordAnswer("");
+    } else {
+      completeRemainingAnswers();
     }
   };
 
   useEffect(() => {
     if (!payload || !timedQuiz || remainingSeconds <= 0 || submittedRef.current) {
       if (payload && timedQuiz && remainingSeconds <= 0) {
-        if (timerMode === "PER_QUESTION") {
-          recordAnswer("");
-        } else {
-          const answeredOrders = new Set(
-            answersRef.current.map((item) => item.questionOrder)
-          );
-          const unanswered = questions
-            .filter((item) => !answeredOrders.has(item.questionOrder))
-            .map((item) => ({
-              questionOrder: item.questionOrder,
-              selectedAnswer: "",
-            }));
-          submitChallenge([...answersRef.current, ...unanswered]);
-        }
+        handleTimerExpired();
       }
       return undefined;
     }
@@ -171,8 +244,10 @@ export default function ChallengePlay({ setAlign }) {
       </div>
       <QuizOptions
         quizData={currentQuestion}
-        checkAnswer={(answer) => recordAnswer(answer)}
-        bg={defaultOptionStyles}
+        checkAnswer={(answer, index) => recordAnswer(answer, index)}
+        bg={bg}
+        disabled={optionLocked || submitting}
+        danger={isTimerDanger}
       />
       <button
         className="analysis-outline-button w-full rounded border border-red-600 p-3 text-red-600 transition sm:w-auto"

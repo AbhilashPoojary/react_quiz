@@ -48,6 +48,7 @@ export default function QuizSetupV2({
   questionType,
   questionCount,
   enableTimer,
+  showAnswerFeedback = true,
   timerMode,
   totalDuration,
   timePerQuestion,
@@ -58,6 +59,7 @@ export default function QuizSetupV2({
   setQuestionType,
   setQuestionCount,
   setEnableTimer,
+  setShowAnswerFeedback,
   setTimerMode,
   setTotalDuration,
   setTimePerQuestion,
@@ -88,6 +90,7 @@ export default function QuizSetupV2({
   const quizConfig = useMemo(
     () => ({
       timedQuiz: Boolean(enableTimer),
+      showAnswerFeedback: Boolean(showAnswerFeedback),
       timerMode: enableTimer ? timerMode : "TOTAL",
       totalDuration:
         enableTimer && timerMode === "TOTAL" ? Number(totalDuration) : null,
@@ -96,7 +99,7 @@ export default function QuizSetupV2({
           ? Number(timePerQuestion)
           : null,
     }),
-    [enableTimer, timerMode, totalDuration, timePerQuestion]
+    [enableTimer, showAnswerFeedback, timerMode, totalDuration, timePerQuestion]
   );
 
   const validate = () => {
@@ -319,12 +322,18 @@ export default function QuizSetupV2({
           </div>
 
           <section className="sm:col-span-2 rounded border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <CustomCheckbox
                 checked={enableTimer}
                 label="Timed Quiz"
                 name="quiz-v2-timed"
                 onChange={setEnableTimer}
+              />
+              <CustomCheckbox
+                checked={showAnswerFeedback}
+                label="Show Answer Feedback"
+                name="quiz-v2-answer-feedback"
+                onChange={setShowAnswerFeedback}
               />
             </div>
 
