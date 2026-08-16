@@ -15,6 +15,7 @@ const {
   withEffectiveEventStatus,
 } = require("../utils/eventStatus");
 const { validateName } = require("../utils/nameValidation");
+const { getUniqueExistingQuestions } = require("../services/questionExtractionService");
 
 const categoryNames = {
   9: "General Knowledge",
@@ -43,6 +44,35 @@ const categoryNames = {
 };
 
 const POINTS_PER_QUESTION = 10;
+
+const fetchJsonFromUrl = (url) =>
+  new Promise((resolve, reject) => {
+    https
+      .get(url, (response) => {
+        let data = "";
+
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        response.on("end", () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      })
+      .on("error", reject);
+  });
+
+const normalizeQuestionMatchValue = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .replace(/^entertainment:\s*/i, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -139,6 +169,10 @@ const getQuestions = async (req, res) => {
     difficulty = "",
     type = "multiple",
   } = req.query;
+  const requestedAmount = Math.max(1, toNumber(amount, 10));
+  const requestedCategoryName = normalizeQuestionMatchValue(categoryNames[category] || "");
+  const requestedDifficulty = normalizeQuestionMatchValue(difficulty);
+  const requestedType = normalizeQuestionMatchValue(type || "multiple");
 
   const query = new URLSearchParams({
     amount,
@@ -149,22 +183,59 @@ const getQuestions = async (req, res) => {
 
   try {
     const apiUrl = `https://opentdb.com/api.php?${query}`;
-    https
-      .get(apiUrl, (response) => {
-        let data = "";
+    const parsed = await fetchJsonFromUrl(apiUrl);
+    const externalQuestions = Array.isArray(parsed.results) ? parsed.results : [];
 
-        response.on("data", (chunk) => {
-          data += chunk;
-        });
+    if (externalQuestions.length > 0) {
+      return res.status(200).json(externalQuestions);
+    }
 
-        response.on("end", () => {
-          const parsed = JSON.parse(data);
-          res.status(200).json(parsed.results || []);
-        });
+    const questionBank = await getUniqueExistingQuestions();
+    const internalQuestions = (questionBank.questions || [])
+      .filter((question) => {
+        const categoryMatches =
+          !requestedCategoryName ||
+          normalizeQuestionMatchValue(question.category) === requestedCategoryName;
+        const difficultyMatches =
+          !requestedDifficulty ||
+          normalizeQuestionMatchValue(question.difficulty) === requestedDifficulty;
+        const typeMatches =
+          !requestedType ||
+          normalizeQuestionMatchValue(question.type || "multiple") === requestedType;
+
+        return (
+          categoryMatches &&
+          difficultyMatches &&
+          typeMatches &&
+          question.question &&
+          question.correctAnswer &&
+          Array.isArray(question.options) &&
+          question.options.length > 1
+        );
       })
-      .on("error", (error) => {
-        res.status(500).json({ error: error.message });
+      .sort(() => Math.random() - 0.5)
+      .slice(0, requestedAmount)
+      .map((question) => {
+        const correctAnswer = String(question.correctAnswer || "");
+        const incorrectAnswers = (question.options || [])
+          .filter((option) => option !== correctAnswer)
+          .slice(0, requestedType === "boolean" ? 1 : 3);
+
+        return {
+          category: question.category || categoryNames[category] || "",
+          type: question.type || requestedType || "multiple",
+          difficulty: question.difficulty || requestedDifficulty || "",
+          question: question.question,
+          correct_answer: correctAnswer,
+          incorrect_answers: incorrectAnswers,
+        };
       });
+
+    if (internalQuestions.length > 0) {
+      return res.status(200).json(internalQuestions);
+    }
+
+    return res.status(200).json([]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -377,23 +448,31 @@ const profile = async (req, res) => {
       const attempts = attemptMap[challenge._id.toString()] || [];
       const userAttempt =
         attempts.find((attempt) => attempt.userId === userId) || null;
+      const participantCount = challenge.participants.length;
       const isExpired =
         challenge.status !== "COMPLETED" &&
         challenge.status !== "CANCELLED" &&
         new Date(challenge.expiresAt) <= new Date();
+      const status = isExpired ? "EXPIRED" : challenge.status;
 
       return {
         _id: challenge._id,
         challengeCode: challenge.challengeCode,
+        createdBy: challenge.createdBy,
         categoryName: challenge.config.categoryName,
         difficulty: challenge.config.difficulty,
         questionCount: challenge.config.questionCount,
         duration: challenge.config.duration,
-        status: isExpired ? "EXPIRED" : challenge.status,
+        status,
         createdAt: challenge.createdAt,
-        participantCount: challenge.participants.length,
+        participantCount,
         completedCount: attempts.length,
         hasCompleted: Boolean(userAttempt),
+        canDelete:
+          challenge.createdBy === userId &&
+          participantCount <= 1 &&
+          attempts.length === 0 &&
+          status === "OPEN",
         score: userAttempt?.score ?? null,
         maxScore: userAttempt?.maxScore ?? challenge.config.questionCount * 10,
       };

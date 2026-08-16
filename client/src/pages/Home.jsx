@@ -5,12 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { Popper } from "react-popper";
 import QuizDetails from "../components/QuizDetails";
 import QuizSetupV2 from "../components/QuizSetupV2";
+import LoadingOverlay from "../components/LoadingOverlay";
 import apiClient from "../utils/apiClient";
 import { validateField } from "../utils/fieldValidation";
 
 const nameRules = { required: true, minLength: 3, maxLength: 50 };
 export default function Home({
   requestQuestions,
+  loading = false,
   name,
   difficulty,
   questionType,
@@ -127,14 +129,24 @@ export default function Home({
 
   if (setupVersionLoading) {
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div className="h-12 animate-pulse rounded bg-gray-300 dark:bg-gray-600" key={index} />
-          ))}
-        </div>
-        <div className="hidden lg:block">
-          <div className="h-72 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
+      <div className="pt-6 sm:pt-8">
+        <div className="grid gap-6 rounded border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:grid-cols-2 lg:p-6">
+          <div className="space-y-5">
+            <div className="h-7 w-48 animate-pulse rounded bg-gray-300 dark:bg-gray-700" />
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div className="space-y-2" key={index}>
+                <div className="h-4 w-28 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                <div className="h-12 animate-pulse rounded bg-gray-300 dark:bg-gray-700" />
+              </div>
+            ))}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="h-12 animate-pulse rounded bg-gray-300 dark:bg-gray-700" />
+              <div className="h-12 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+            </div>
+          </div>
+          <div className="hidden lg:block">
+            <div className="h-full min-h-[22rem] animate-pulse rounded border border-gray-200 bg-gray-200 dark:border-gray-700 dark:bg-gray-800" />
+          </div>
         </div>
       </div>
     );
@@ -142,35 +154,45 @@ export default function Home({
 
   if (setupVersion === "V2") {
     return (
-      <QuizSetupV2
-        requestQuestions={requestQuestions}
-        name={name}
-        category={category}
-        difficulty={difficulty}
-        questionType={questionType}
-        questionCount={questionCount}
-        enableTimer={enableTimer}
-        showAnswerFeedback={showAnswerFeedback}
-        timerMode={timerMode}
-        totalDuration={totalDuration}
-        timePerQuestion={timePerQuestion}
-        Categories={Categories}
-        setName={setName}
-        setCategoty={setCategoty}
-        setDifficulty={setDifficulty}
-        setQuestionType={setQuestionType}
-        setQuestionCount={setQuestionCount}
-        setEnableTimer={setEnableTimer}
-        setShowAnswerFeedback={setShowAnswerFeedback}
-        setTimerMode={setTimerMode}
-        setTotalDuration={setTotalDuration}
-        setTimePerQuestion={setTimePerQuestion}
-      />
+      <>
+        <LoadingOverlay
+          show={loading}
+          message="Checking OpenTDB and internal question bank..."
+        />
+        <QuizSetupV2
+          requestQuestions={requestQuestions}
+          name={name}
+          category={category}
+          difficulty={difficulty}
+          questionType={questionType}
+          questionCount={questionCount}
+          enableTimer={enableTimer}
+          showAnswerFeedback={showAnswerFeedback}
+          timerMode={timerMode}
+          totalDuration={totalDuration}
+          timePerQuestion={timePerQuestion}
+          Categories={Categories}
+          setName={setName}
+          setCategoty={setCategoty}
+          setDifficulty={setDifficulty}
+          setQuestionType={setQuestionType}
+          setQuestionCount={setQuestionCount}
+          setEnableTimer={setEnableTimer}
+          setShowAnswerFeedback={setShowAnswerFeedback}
+          setTimerMode={setTimerMode}
+          setTotalDuration={setTotalDuration}
+          setTimePerQuestion={setTimePerQuestion}
+        />
+      </>
     );
   }
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+      <LoadingOverlay
+        show={loading}
+        message="Checking OpenTDB and internal question bank..."
+      />
       <div className="w-full lg:w-1/2">
         {/* <h1 className="font-medium text-2xl">Quiz Settings</h1> */}
         <QuizDetails

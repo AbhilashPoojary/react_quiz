@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Edit3, KeyRound, UserCircle, X } from "lucide-react";
+import { Edit3, KeyRound, Trash2, UserCircle, X } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../utils/apiClient";
@@ -9,6 +9,7 @@ import CategoryHeatmap from "../components/CategoryHeatmap";
 import CategoryPolarAreaChart from "../components/CategoryPolarAreaChart";
 import CategoryProgress from "../components/CategoryProgress";
 import CategoryRadarChart from "../components/CategoryRadarChart";
+import ConfirmPopup from "../components/ConfirmPopup";
 import Dropdown from "../components/Dropdown";
 import ErrorNotification from "../components/ErrorNotification";
 import InputFileUpload from "../components/InputFileUpload";
@@ -156,6 +157,8 @@ export default function MyProfile({ setAlign }) {
   });
   const [passwordErrors, setPasswordErrors] = useState({});
   const [picLoading, setPicLoading] = useState(false);
+  const [deletingChallenge, setDeletingChallenge] = useState(false);
+  const [challengeToDelete, setChallengeToDelete] = useState(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
   const [notification, setNotification] = useState({
     type: "info",
@@ -234,6 +237,35 @@ export default function MyProfile({ setAlign }) {
     });
     setPasswordErrors({});
     setIsResettingPassword(false);
+  };
+
+  const handleDeleteChallenge = async () => {
+    if (!challengeToDelete) {
+      return;
+    }
+
+    try {
+      setDeletingChallenge(true);
+      await apiClient.delete(`/api/challenges/${challengeToDelete.challengeCode}`);
+      setProfile((prev) => ({
+        ...prev,
+        challengeHistory: (prev.challengeHistory || []).filter(
+          (item) => item._id !== challengeToDelete._id
+        ),
+      }));
+      setNotification({
+        type: "success",
+        message: "Challenge deleted successfully",
+      });
+      setChallengeToDelete(null);
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: error?.response?.data?.error || "Unable to delete challenge",
+      });
+    } finally {
+      setDeletingChallenge(false);
+    }
   };
 
   const handleProfileImageSelect = async (file) => {
@@ -522,6 +554,17 @@ export default function MyProfile({ setAlign }) {
         type={notification.type}
         duration={3500}
         onHide={() => setNotification({ type: "info", message: "" })}
+      />
+      <ConfirmPopup
+        open={Boolean(challengeToDelete)}
+        title="Delete Challenge?"
+        body={`Are you sure you want to delete challenge ${
+          challengeToDelete?.challengeCode || ""
+        }? This is only available before another user joins.`}
+        confirmText={deletingChallenge ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={handleDeleteChallenge}
+        onCancel={() => setChallengeToDelete(null)}
       />
       <div className="border-b pb-3 mt-3">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
@@ -912,6 +955,11 @@ export default function MyProfile({ setAlign }) {
                     !["COMPLETED", "CANCELLED", "EXPIRED"].includes(
                       item.status
                     );
+                  const canDelete =
+                    item.canDelete ||
+                    (item.status === "OPEN" &&
+                      Number(item.participantCount || 0) <= 1 &&
+                      Number(item.completedCount || 0) === 0);
 
                   return (
                     <tr className="app-table-row border-t" key={item._id}>
@@ -933,23 +981,36 @@ export default function MyProfile({ setAlign }) {
                           : "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          className={
-                            canPlay
-                              ? "rounded bg-red-600 px-3 py-1 text-sm text-white transition hover:bg-red-800"
-                              : "analysis-outline-button rounded border border-red-600 px-3 py-1 text-sm text-red-600 transition"
-                          }
-                          type="button"
-                          onClick={() =>
-                            navigate(
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            className={
                               canPlay
-                                ? `/challenge/${item.challengeCode}/play`
-                                : `/challenge/${item.challengeCode}/results`
-                            )
-                          }
-                        >
-                          {canPlay ? "Play" : "View Results"}
-                        </button>
+                                ? "rounded bg-red-600 px-3 py-1 text-sm text-white transition hover:bg-red-800"
+                                : "analysis-outline-button rounded border border-red-600 px-3 py-1 text-sm text-red-600 transition"
+                            }
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                canPlay
+                                  ? `/challenge/${item.challengeCode}/play`
+                                  : `/challenge/${item.challengeCode}/results`
+                              )
+                            }
+                          >
+                            {canPlay ? "Play" : "View Results"}
+                          </button>
+                          {canDelete && (
+                            <button
+                              className="analysis-outline-button inline-flex items-center gap-1 rounded border border-red-600 px-3 py-1 text-sm text-red-600 transition"
+                              disabled={deletingChallenge}
+                              type="button"
+                              onClick={() => setChallengeToDelete(item)}
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

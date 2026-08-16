@@ -3,6 +3,7 @@ import { Eye, RefreshCw, RotateCcw, Send, Trash2, UserCheck, UserX } from "lucid
 import { Link } from "react-router-dom";
 import ConfirmPopup from "../../components/ConfirmPopup";
 import Dropdown from "../../components/Dropdown";
+import LoadingOverlay from "../../components/LoadingOverlay";
 import apiClient from "../../utils/apiClient";
 
 const statusOptions = [
@@ -92,6 +93,7 @@ function BulkNotificationModal({ selectedCount, selectedIds, onClose, onSent }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <LoadingOverlay show={loading} message="Sending notification..." />
       <div className="confirm-card w-full max-w-lg rounded border p-5 shadow-xl">
         <h2 className="app-strong-text text-xl font-bold">Send Notification</h2>
         <p className="app-muted-text mt-1 text-sm">Recipients: {selectedCount} users</p>
@@ -102,9 +104,9 @@ function BulkNotificationModal({ selectedCount, selectedIds, onClose, onSent }) 
           <Dropdown data={typeOptions} state={type} setState={setType} dropdownId="bulk-notification-type" />
         </div>
         <div className="mt-5 flex justify-end gap-3">
-          <button className="rounded border px-4 py-2" type="button" onClick={onClose}>Cancel</button>
+          <button className="rounded border px-4 py-2 disabled:opacity-60" disabled={loading} type="button" onClick={onClose}>Cancel</button>
           <button className="rounded bg-red-600 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="button" onClick={handleSend}>
-            {loading ? "Sending..." : "Send"}
+            Send
           </button>
         </div>
       </div>
@@ -124,6 +126,8 @@ export default function AdminUsers() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [softDeleteUser, setSoftDeleteUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
   const [message, setMessage] = useState({ type: "info", text: "" });
 
   const loadUsers = async () => {
@@ -132,7 +136,7 @@ export default function AdminUsers() {
       const response = await apiClient.get("/api/admin/users", {
         params: { search, status, role, sort, page, limit: 10 },
       });
-      setUsers(response.data.users || []);
+      setUsers((response.data.users || []).filter((user) => !user.isDeleted));
       setTotalPages(response.data.totalPages || 1);
       setMessage({ type: "info", text: "" });
     } catch (error) {
@@ -146,8 +150,10 @@ export default function AdminUsers() {
     loadUsers();
   }, [status, role, sort, page]);
 
-  const runAction = async (path, successText) => {
+  const runAction = async (path, successText, overlayMessage = "Updating user...") => {
     try {
+      setActionLoading(true);
+      setActionMessage(overlayMessage);
       await apiClient[path.method || "patch"](path.url, path.body);
       setMessage({ type: "success", text: successText });
       setSelectedIds([]);
@@ -156,6 +162,9 @@ export default function AdminUsers() {
     } catch (error) {
       setMessage({ type: "error", text: error?.response?.data?.error || "Action failed" });
       return false;
+    } finally {
+      setActionLoading(false);
+      setActionMessage("");
     }
   };
 
@@ -166,7 +175,8 @@ export default function AdminUsers() {
     }
     runAction(
       { method: "post", url: `/api/admin/users/bulk/${action}`, body: { userIds: selectedIds } },
-      "Users updated successfully"
+      "Users updated successfully",
+      action === "deactivate" ? "Deactivating selected users..." : "Activating selected users..."
     );
   };
 
@@ -182,7 +192,8 @@ export default function AdminUsers() {
     }
     const success = await runAction(
       { method: "delete", url: `/api/admin/users/${softDeleteUser._id}` },
-      "User soft deleted"
+      "User soft deleted",
+      "Soft deleting user..."
     );
     if (success) {
       setSoftDeleteUser(null);
@@ -191,11 +202,12 @@ export default function AdminUsers() {
 
   return (
     <div>
+      <LoadingOverlay show={actionLoading} message={actionMessage} />
       <ConfirmPopup
         open={Boolean(softDeleteUser)}
         title="Soft Delete User?"
         body={`Are you sure you want to soft delete "${softDeleteUser?.name || "this user"}"? Their account will be disabled, while quiz history, event records, and challenge data remain preserved.`}
-        confirmText="Soft Delete"
+        confirmText={actionLoading ? "Soft Deleting..." : "Soft Delete"}
         cancelText="Cancel"
         onConfirm={handleSoftDelete}
         onCancel={() => setSoftDeleteUser(null)}
@@ -219,10 +231,10 @@ export default function AdminUsers() {
         <Dropdown data={sortOptions} state={sort} setState={setSort} dropdownId="admin-users-sort" />
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
-        <button className="analysis-outline-button inline-flex items-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600" onClick={loadUsers}><RefreshCw size={16} />Search</button>
-        <button className="rounded bg-red-600 px-3 py-2 text-white disabled:opacity-60" disabled={!selectedIds.length} onClick={() => bulkAction("activate")}>Bulk Activate</button>
-        <button className="rounded bg-red-600 px-3 py-2 text-white disabled:opacity-60" disabled={!selectedIds.length} onClick={() => bulkAction("deactivate")}>Bulk Deactivate</button>
-        <button className="analysis-outline-button inline-flex items-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 disabled:opacity-60" disabled={!selectedIds.length} onClick={() => setShowNotificationModal(true)}><Send size={16} />Send Notification</button>
+        <button className="analysis-outline-button inline-flex items-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 disabled:opacity-60" disabled={actionLoading} onClick={loadUsers}><RefreshCw size={16} />Search</button>
+        <button className="rounded bg-red-600 px-3 py-2 text-white disabled:opacity-60" disabled={!selectedIds.length || actionLoading} onClick={() => bulkAction("activate")}>Bulk Activate</button>
+        <button className="rounded bg-red-600 px-3 py-2 text-white disabled:opacity-60" disabled={!selectedIds.length || actionLoading} onClick={() => bulkAction("deactivate")}>Bulk Deactivate</button>
+        <button className="analysis-outline-button inline-flex items-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 disabled:opacity-60" disabled={!selectedIds.length || actionLoading} onClick={() => setShowNotificationModal(true)}><Send size={16} />Send Notification</button>
       </div>
       {message.text && <div className={`mb-4 rounded border p-3 text-sm ${message.type === "error" ? "border-red-300 bg-red-50 text-red-700" : "border-green-300 bg-green-50 text-green-700"}`}>{message.text}</div>}
       <div className="overflow-x-auto">
@@ -253,13 +265,13 @@ export default function AdminUsers() {
                   <div className="flex gap-2">
                     <Link className="rounded border p-2 text-gray-500 hover:text-red-600" title="View" to={`/admin/users/${user._id}`}><Eye size={16} /></Link>
                     {user.isDeleted ? (
-                      <button className="rounded border p-2 text-gray-500 hover:text-red-600" title="Restore" onClick={() => runAction({ url: `/api/admin/users/${user._id}/restore` }, "User restored")}><RotateCcw size={16} /></button>
+                      <button className="rounded border p-2 text-gray-500 hover:text-red-600 disabled:opacity-60" disabled={actionLoading} title="Restore" onClick={() => runAction({ url: `/api/admin/users/${user._id}/restore` }, "User restored", "Restoring user...")}><RotateCcw size={16} /></button>
                     ) : user.isActive ? (
-                      <button className="rounded border p-2 text-gray-500 hover:text-red-600" title="Deactivate" onClick={() => runAction({ url: `/api/admin/users/${user._id}/deactivate` }, "User deactivated")}><UserX size={16} /></button>
+                      <button className="rounded border p-2 text-gray-500 hover:text-red-600 disabled:opacity-60" disabled={actionLoading} title="Deactivate" onClick={() => runAction({ url: `/api/admin/users/${user._id}/deactivate` }, "User deactivated", "Deactivating user...")}><UserX size={16} /></button>
                     ) : (
-                      <button className="rounded border p-2 text-gray-500 hover:text-red-600" title="Activate" onClick={() => runAction({ url: `/api/admin/users/${user._id}/activate` }, "User activated")}><UserCheck size={16} /></button>
+                      <button className="rounded border p-2 text-gray-500 hover:text-red-600 disabled:opacity-60" disabled={actionLoading} title="Activate" onClick={() => runAction({ url: `/api/admin/users/${user._id}/activate` }, "User activated", "Activating user...")}><UserCheck size={16} /></button>
                     )}
-                    {!user.isDeleted && <button className="rounded border p-2 text-gray-500 hover:text-red-600" title="Soft Delete" onClick={() => setSoftDeleteUser(user)}><Trash2 size={16} /></button>}
+                    {!user.isDeleted && <button className="rounded border p-2 text-gray-500 hover:text-red-600 disabled:opacity-60" disabled={actionLoading} title="Soft Delete" onClick={() => setSoftDeleteUser(user)}><Trash2 size={16} /></button>}
                   </div>
                 </td>
               </tr>

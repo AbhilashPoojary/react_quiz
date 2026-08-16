@@ -34,6 +34,7 @@ import ChallengeCreate from "./pages/ChallengeCreate";
 import ChallengeLanding from "./pages/ChallengeLanding";
 import ChallengePlay from "./pages/ChallengePlay";
 import ChallengeResult from "./pages/ChallengeResult";
+import SpinChallenge from "./pages/SpinChallenge";
 import Unauthorized from "./pages/Unauthorized";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEvents from "./pages/admin/AdminEvents";
@@ -52,11 +53,11 @@ function App() {
   const [difficulty, setDifficulty] = useState("");
   const [questionType, setQuestionType] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
-  const [enableTimer, setEnableTimer] = useState(false);
+  const [enableTimer, setEnableTimer] = useState(true);
   const [showAnswerFeedback, setShowAnswerFeedback] = useState(true);
   const [timerMode, setTimerMode] = useState("PER_QUESTION");
   const [totalDuration, setTotalDuration] = useState(null);
-  const [timePerQuestion, setTimePerQuestion] = useState(20);
+  const [timePerQuestion, setTimePerQuestion] = useState(10);
   const [quizData, setQuizData] = useState([]);
   const [quizIndex, setQuizIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState([]);
@@ -85,7 +86,12 @@ function App() {
     applyTheme(getSavedTheme());
   }, []);
 
-  const requestQuestions = async () => {
+  const requestQuestions = async (overrides = {}) => {
+    const nextCategory = overrides.category ?? category;
+    const nextDifficulty = overrides.difficulty ?? difficulty;
+    const nextQuestionType = overrides.questionType ?? questionType;
+    const nextQuestionCount = overrides.questionCount ?? questionCount;
+
     try {
       setLoading(true);
       setQuizData([]);
@@ -96,10 +102,10 @@ function App() {
       setLastAttemptId("");
       const response = await apiClient.get("/api/questions", {
         params: {
-          amount: questionCount,
-          category,
-          difficulty,
-          type: questionType,
+          amount: nextQuestionCount,
+          category: nextCategory,
+          difficulty: nextDifficulty,
+          type: nextQuestionType,
         },
       });
       const questions = Array.isArray(response.data) ? response.data : [];
@@ -108,7 +114,7 @@ function App() {
         return {
           success: false,
           message:
-            "No questions were found for these settings. Please try another category, difficulty, or question type.",
+            "No questions were found in OpenTDB or the internal question bank for these settings. Please try another category, difficulty, question type, or question count.",
         };
       }
 
@@ -414,6 +420,7 @@ function App() {
               <ProtectedRoute>
                 <Home
                   requestQuestions={requestQuestions}
+                  loading={loading}
                   name={name}
                   category={category}
                   enableTimer={enableTimer}
@@ -434,6 +441,25 @@ function App() {
                   timePerQuestion={timePerQuestion}
                   setTimePerQuestion={setTimePerQuestion}
                   setName={setName}
+                />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/challenge/spin"
+            element={
+              <ProtectedRoute>
+                <SpinChallenge
+                  requestQuestions={requestQuestions}
+                  setAlign={setAlign}
+                  setCategoty={setCategoty}
+                  setDifficulty={setDifficulty}
+                  setQuestionType={setQuestionType}
+                  setQuestionCount={setQuestionCount}
+                  setEnableTimer={setEnableTimer}
+                  setTimerMode={setTimerMode}
+                  setTotalDuration={setTotalDuration}
+                  setTimePerQuestion={setTimePerQuestion}
                 />
               </ProtectedRoute>
             }
@@ -460,6 +486,7 @@ function App() {
                   timerMode={timerMode}
                   totalDuration={totalDuration}
                   timePerQuestion={timePerQuestion}
+                  setTimePerQuestion={setTimePerQuestion}
                   setEnableTimer={setEnableTimer}
                   timeConsumed={timeConsumed}
                   setTimeConsumed={setTimeConsumed}
@@ -480,6 +507,7 @@ function App() {
                   setQuizData={setQuizData}
                   setQuizIndex={setQuizIndex}
                   setEnableTimer={setEnableTimer}
+                  setTimePerQuestion={setTimePerQuestion}
                   setAlign={setAlign}
                   category={category}
                   setCategoty={setCategoty}
@@ -584,7 +612,7 @@ function App() {
             path="/admin"
             element={
               <AdminRoute>
-                <AdminLayout logoutUser={logoutUser} />
+                <AdminLayout />
               </AdminRoute>
             }
           >

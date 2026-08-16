@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Copy, Share2, Swords, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Share2, Swords, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ConfirmPopup from "./ConfirmPopup";
 import Dropdown from "./Dropdown";
@@ -407,6 +407,14 @@ export default function QuizSetupV2({
           >
             {challengeLoading ? "Creating..." : "Challenge a Friend"}
           </button>
+          <button
+            type="button"
+            className="analysis-outline-button inline-flex w-full items-center justify-center gap-2 rounded border border-red-600 p-3 text-red-600 transition lg:hidden sm:col-span-2"
+            onClick={() => navigate("/challenge/spin")}
+          >
+            Spin & Play
+            <ArrowRight size={18} />
+          </button>
         </div>
 
         {createdChallenge && (
@@ -490,6 +498,40 @@ export default function QuizSetupV2({
       </form>
 
       <aside className="hidden lg:block">
+        <div className="admin-card mb-5 rounded border p-5">
+          <div className="flex items-center gap-4">
+            <div className="spin-wheel spin-wheel-small">
+              <span className="spin-wheel-pointer" />
+              <span className="spin-wheel-center" />
+            </div>
+            <div>
+              <h3 className="app-strong-text text-lg font-bold">
+                Spin Challenge
+              </h3>
+              <p className="app-muted-text mt-1 text-sm">
+                Feeling lucky? Let the wheels decide your quiz.
+              </p>
+            </div>
+          </div>
+          <button
+            className="analysis-outline-button mt-4 inline-flex w-full items-center justify-center gap-2 rounded border border-red-600 px-4 py-3 font-semibold text-red-600"
+            type="button"
+            onClick={() => navigate("/challenge/spin")}
+          >
+            Spin & Play
+            <ArrowRight size={18} />
+          </button>
+          {/* <div className="mt-4 border-t pt-4">
+            <p className="app-muted-text text-sm">Random Category</p>
+            <p className="app-muted-text mt-2 text-sm">Random Difficulty</p>
+            <p className="app-muted-text mt-2 text-sm">
+              Random Number of Questions
+            </p>
+          </div> */}
+          <p className="mt-3 text-sm font-semibold text-red-600 text-center">
+            Fun. Fast. Fair.
+          </p>
+        </div>
         <img className="custom-quiz-image rounded" src={quizMaze} alt="Quiz maze" />
         <div className="mx-auto mt-4 max-w-sm text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white">

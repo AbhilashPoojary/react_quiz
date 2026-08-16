@@ -6,6 +6,7 @@ import InputCheckbox from "./InputCheckbox";
 import DatePickerInput from "./DatePickerInput";
 import TimePickerInput from "./TimePickerInput";
 import InputText from "./InputText";
+import LoadingOverlay from "./LoadingOverlay";
 
 const initialFormState = {
   eventName: "",
@@ -143,6 +144,7 @@ export default function EventForm({ eventId }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(Boolean(eventId));
   const [saving, setSaving] = useState(false);
+  const [savingMessage, setSavingMessage] = useState("");
   const [message, setMessage] = useState({ type: "info", text: "" });
   const [effectiveStatus, setEffectiveStatus] = useState("");
   const todayValue = getTodayValue();
@@ -296,6 +298,7 @@ export default function EventForm({ eventId }) {
 
   const handleSaveDraft = async () => {
     try {
+      setSavingMessage("Saving event draft...");
       setSaving(true);
       const savedEvent = await saveEvent();
 
@@ -314,11 +317,13 @@ export default function EventForm({ eventId }) {
       });
     } finally {
       setSaving(false);
+      setSavingMessage("");
     }
   };
 
   const handlePublish = async () => {
     try {
+      setSavingMessage("Publishing event and fetching questions...");
       setSaving(true);
       const savedEvent = await saveEvent();
 
@@ -338,6 +343,7 @@ export default function EventForm({ eventId }) {
       });
     } finally {
       setSaving(false);
+      setSavingMessage("");
     }
   };
 
@@ -366,6 +372,7 @@ export default function EventForm({ eventId }) {
 
   return (
     <div className="admin-card rounded border p-4 sm:p-6">
+      <LoadingOverlay show={saving} message={savingMessage} />
       {message.text && (
         <div
           className={`mb-4 rounded border p-3 text-sm ${
@@ -559,7 +566,7 @@ export default function EventForm({ eventId }) {
           disabled={saving}
           onClick={handleSaveDraft}
         >
-          {saving ? "Saving..." : "Save Draft"}
+          Save Draft
         </button>
         <button
           type="button"
@@ -567,7 +574,7 @@ export default function EventForm({ eventId }) {
           disabled={saving}
           onClick={handlePublish}
         >
-          {saving ? "Publishing..." : "Publish Event"}
+          Publish Event
         </button>
       </div>
     </div>

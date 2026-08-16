@@ -6,6 +6,7 @@ import QuizComponent from "../components/QuizComponent";
 
 export default function QuizPage({
   setEnableTimer,
+  setTimePerQuestion,
   name,
   loading,
   currentQuestion,
@@ -29,7 +30,8 @@ export default function QuizPage({
   const navigate = useNavigate();
   const quitNow = () => {
     setScore(0);
-    setEnableTimer(false);
+    setEnableTimer(true);
+    setTimePerQuestion(10);
     setQuizData([]);
     setQuizIndex(0);
     setTimeConsumed(0);

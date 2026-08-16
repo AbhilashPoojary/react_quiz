@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { CustomRadio } from "../../components/CustomSelectionControls";
+import LoadingOverlay from "../../components/LoadingOverlay";
 import apiClient from "../../utils/apiClient";
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -452,6 +453,10 @@ export default function AdminDashboard() {
 
   return (
     <div>
+      <LoadingOverlay
+        show={setupSaving}
+        message="Updating quiz setup version..."
+      />
       <h1 className="app-strong-text mb-5 text-2xl font-bold">
         Admin Dashboard
       </h1>

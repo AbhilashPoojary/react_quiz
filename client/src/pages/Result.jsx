@@ -18,6 +18,7 @@ export default function Result({
   score,
   setScore,
   setEnableTimer,
+  setTimePerQuestion,
   setQuizData,
   setQuizIndex,
   setAlign,
@@ -38,7 +39,8 @@ export default function Result({
   const redirectHome = () => {
     setAlign(false);
     setScore(0);
-    setEnableTimer(false);
+    setEnableTimer(true);
+    setTimePerQuestion(10);
     setQuizData([]);
     setQuizIndex(0);
     setTimeConsumed(0);

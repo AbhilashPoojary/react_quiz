@@ -13,6 +13,7 @@ import InputPassword from "./InputPassword";
 import InputText from "./InputText";
 import ErrorNotification from "./ErrorNotification";
 import ConfirmPopup from "./ConfirmPopup";
+import AuthLoadingOverlay from "./AuthLoadingOverlay";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const emailRules = {
@@ -42,6 +43,11 @@ export default function Signin({ switchToSignUp, setAlign }) {
 
   const handleSubmit = function (e) {
     e.preventDefault();
+
+    if (state) {
+      return;
+    }
+
     const errors = {};
 
     if (!email.trim()) {
@@ -109,6 +115,7 @@ export default function Signin({ switchToSignUp, setAlign }) {
 
   return (
     <div className="form-container">
+      <AuthLoadingOverlay show={state} message="Signing you in..." />
       <ConfirmPopup
         open={showSessionPopup}
         title="Single active session"
@@ -168,10 +175,19 @@ export default function Signin({ switchToSignUp, setAlign }) {
           </Link>
         </div>
         <div className="mt-2 flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-end sm:justify-between">
-          <button className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded px-3 py-2 text-white">
+          <button
+            className="rounded bg-red-600 px-3 py-2 text-white transition duration-300 ease-in-out hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={state}
+            type="submit"
+          >
             Submit
           </button>
-          <Link className="auth-link underline text-blue-500" onClick={switchToSignUp}>
+          <Link
+            className={`auth-link underline text-blue-500 ${
+              state ? "pointer-events-none opacity-60" : ""
+            }`}
+            onClick={switchToSignUp}
+          >
             Register here
           </Link>
         </div>

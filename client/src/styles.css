@@ -210,6 +210,188 @@ label[for="cpassword"] div[role="status"] {
   border-color: rgba(220, 38, 38, 0.35);
   color: var(--app-text);
 }
+.email-template-canvas {
+  background: #f6f7fb;
+  border-color: #e5e7eb;
+}
+.email-template-card {
+  max-width: 600px;
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+.email-template-header {
+  background: #dc2626;
+  color: #ffffff;
+  padding: 20px 24px;
+}
+.email-template-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0;
+}
+.email-template-body {
+  color: #374151;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 28px 24px;
+}
+.email-template-body-editor h1 {
+  color: #111827;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 14px;
+}
+.email-template-body-editor h2 {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0 0 14px;
+}
+.email-template-body-editor p {
+  margin: 0 0 14px;
+}
+.email-template-body-editor a {
+  color: #dc2626;
+  font-weight: 700;
+}
+.email-template-body-editor ul,
+.email-template-body-editor ol {
+  margin: 0 0 14px 22px;
+  padding: 0;
+}
+.email-template-body-editor:focus {
+  box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+.spin-wheel-item {
+  align-items: center;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--app-text);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  transition: background-color 160ms ease, opacity 160ms ease;
+}
+.spin-wheel-item:not(:disabled):hover {
+  background: rgba(220, 38, 38, 0.06);
+}
+.spin-wheel-item:disabled {
+  cursor: default;
+}
+.spin-wheel {
+  background: #ffffff;
+  border: 1px solid #6b7280;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  display: inline-flex;
+  height: 116px;
+  position: relative;
+  width: 116px;
+}
+.spin-wheel::before {
+  background:
+    conic-gradient(
+      from -18deg,
+      rgba(220, 38, 38, 0.82) 0 34deg,
+      #ffffff 34deg 72deg,
+      rgba(248, 113, 113, 0.42) 72deg 108deg,
+      #ffffff 108deg 145deg,
+      rgba(220, 38, 38, 0.82) 145deg 184deg,
+      #ffffff 184deg 220deg,
+      rgba(248, 113, 113, 0.42) 220deg 255deg,
+      #ffffff 255deg 292deg,
+      rgba(220, 38, 38, 0.82) 292deg 326deg,
+      #ffffff 326deg 360deg
+    );
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+.spin-wheel-small {
+  height: 78px;
+  width: 78px;
+}
+.spin-wheel-active {
+  filter: blur(0.4px);
+}
+.spin-wheel-active::before {
+  animation: spin-wheel-rotate 0.46s linear infinite;
+}
+.spin-wheel-pointer {
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 24px solid #000;
+  left: 50%;
+  position: absolute;
+  top: -1px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.spin-wheel-small .spin-wheel-pointer {
+  border-left-width: 7px;
+  border-right-width: 7px;
+  border-top-width: 18px;
+}
+.spin-wheel-center {
+  background: #ffffff;
+  border: 1px solid #9ca3af;
+  border-radius: 999px;
+  height: 24px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+}
+.spin-wheel-small .spin-wheel-center {
+  height: 18px;
+  width: 18px;
+}
+@keyframes spin-wheel-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+[data-theme="dark"] .spin-wheel {
+  background: #1f2937;
+  border-color: #9ca3af;
+}
+[data-theme="dark"] .spin-wheel::before {
+  background:
+    conic-gradient(
+      from -18deg,
+      rgba(248, 113, 113, 0.86) 0 34deg,
+      #1f2937 34deg 72deg,
+      rgba(220, 38, 38, 0.48) 72deg 108deg,
+      #1f2937 108deg 145deg,
+      rgba(248, 113, 113, 0.86) 145deg 184deg,
+      #1f2937 184deg 220deg,
+      rgba(220, 38, 38, 0.48) 220deg 255deg,
+      #1f2937 255deg 292deg,
+      rgba(248, 113, 113, 0.86) 292deg 326deg,
+      #1f2937 326deg 360deg
+    );
+}
+[data-theme="dark"] .spin-wheel-center {
+  background: #111827;
+  border-color: #d1d5db;
+}
+[data-theme="dark"] .spin-wheel-pointer {
+  border-top-color: #d1d5db;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin-wheel-active {
+    animation: none;
+  }
+  .spin-wheel-active::before {
+    animation: none;
+  }
+}
 .analysis-status-correct,
 .analysis-option-correct {
   background: rgba(34, 197, 94, 0.12);

@@ -58,6 +58,19 @@ function TemplatePreview({ html }) {
   );
 }
 
+function EmailShell({ children }) {
+  return (
+    <div className="email-template-canvas rounded border p-4">
+      <div className="email-template-card mx-auto overflow-hidden rounded border">
+        <div className="email-template-header">
+          <h1>Quiz Playground</h1>
+        </div>
+        <div className="email-template-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminEmailTemplateDetails({ mode = "view" }) {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -111,10 +124,21 @@ export default function AdminEmailTemplateDetails({ mode = "view" }) {
   }, [templateId]);
 
   useEffect(() => {
-    if (editorRef.current && isEdit) {
+    if (editorRef.current) {
+      editorRef.current.dataset.userEdited = "false";
+    }
+  }, [template?._id]);
+
+  useEffect(() => {
+    if (
+      editorRef.current &&
+      isEdit &&
+      form.htmlBody &&
+      editorRef.current.dataset.userEdited !== "true"
+    ) {
       editorRef.current.innerHTML = form.htmlBody;
     }
-  }, [isEdit, template?._id]);
+  }, [form.htmlBody, isEdit, template?._id]);
 
   const runCommand = (command, value = null) => {
     editorRef.current?.focus();
@@ -386,43 +410,78 @@ export default function AdminEmailTemplateDetails({ mode = "view" }) {
               </div>
             )}
             {isEdit ? (
-              <div
-                ref={editorRef}
-                className="app-input min-h-[300px] overflow-auto rounded border p-4"
-                contentEditable
-                suppressContentEditableWarning
-                onFocus={() => setActiveField("body")}
-                onInput={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    htmlBody: event.currentTarget.innerHTML,
-                  }))
-                }
-              />
+              <EmailShell>
+                <div
+                  ref={editorRef}
+                  className="email-template-body-editor min-h-[300px] outline-none"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onFocus={() => setActiveField("body")}
+                  onInput={(event) => {
+                    event.currentTarget.dataset.userEdited = "true";
+                    setForm((prev) => ({
+                      ...prev,
+                      htmlBody: event.currentTarget.innerHTML,
+                    }));
+                  }}
+                />
+              </EmailShell>
             ) : (
-              <div
-                className="app-input min-h-[240px] rounded border p-4"
-                dangerouslySetInnerHTML={{ __html: form.htmlBody }}
-              />
+              <EmailShell>
+                <div
+                  className="email-template-body-editor min-h-[240px]"
+                  dangerouslySetInnerHTML={{ __html: form.htmlBody }}
+                />
+              </EmailShell>
             )}
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="app-label inline-flex items-center gap-2 text-sm font-semibold">
-              <input
-                checked={form.isActive}
-                disabled={!isEdit}
-                type="checkbox"
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    isActive: event.target.checked,
-                  }))
-                }
-              />
-              Active
-            </label>
-            <div className="flex flex-col gap-3 sm:flex-row">
+          {isEdit && (
+            <div className="mt-5 rounded border p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="app-strong-text text-sm font-semibold">
+                    Template Status
+                  </p>
+                  <p className="app-muted-text mt-1 text-sm">
+                    Inactive templates will not be used for outgoing emails.
+                  </p>
+                </div>
+                <div className="inline-flex rounded border p-1">
+                  <button
+                    className={`rounded px-4 py-2 text-sm font-semibold transition ${
+                      form.isActive
+                        ? "bg-red-600 text-white"
+                        : "app-strong-text hover:bg-gray-100"
+                    }`}
+                    disabled={saving}
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, isActive: true }))
+                    }
+                  >
+                    Active
+                  </button>
+                  <button
+                    className={`rounded px-4 py-2 text-sm font-semibold transition ${
+                      !form.isActive
+                        ? "bg-red-600 text-white"
+                        : "app-strong-text hover:bg-gray-100"
+                    }`}
+                    disabled={saving}
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, isActive: false }))
+                    }
+                  >
+                    Inactive
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
                 className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-4 py-2 text-red-600"
                 disabled={previewLoading}
@@ -443,7 +502,6 @@ export default function AdminEmailTemplateDetails({ mode = "view" }) {
                   {saving ? "Saving..." : "Save"}
                 </button>
               )}
-            </div>
           </div>
 
           <div className="app-muted-text mt-4 text-sm">

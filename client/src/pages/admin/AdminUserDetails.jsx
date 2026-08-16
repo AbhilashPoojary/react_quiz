@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ConfirmPopup from "../../components/ConfirmPopup";
+import LoadingOverlay from "../../components/LoadingOverlay";
 import apiClient from "../../utils/apiClient";
 
 const formatDate = (date) =>
@@ -88,6 +89,8 @@ export default function AdminUserDetails() {
   const navigate = useNavigate();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
   const [confirmSoftDelete, setConfirmSoftDelete] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
 
@@ -107,8 +110,10 @@ export default function AdminUserDetails() {
     loadUser();
   }, [userId]);
 
-  const runAction = async (method, url, text) => {
+  const runAction = async (method, url, text, overlayMessage = "Updating user...") => {
     try {
+      setActionLoading(true);
+      setActionMessage(overlayMessage);
       await apiClient[method](url);
       setMessage({ type: "success", text });
       await loadUser();
@@ -116,6 +121,9 @@ export default function AdminUserDetails() {
     } catch (error) {
       setMessage({ type: "error", text: error?.response?.data?.error || "Action failed" });
       return false;
+    } finally {
+      setActionLoading(false);
+      setActionMessage("");
     }
   };
 
@@ -130,7 +138,12 @@ export default function AdminUserDetails() {
   const { user, stats } = payload;
 
   const handleSoftDelete = async () => {
-    const success = await runAction("delete", `/api/admin/users/${user._id}`, "User soft deleted");
+    const success = await runAction(
+      "delete",
+      `/api/admin/users/${user._id}`,
+      "User soft deleted",
+      "Soft deleting user..."
+    );
     if (success) {
       setConfirmSoftDelete(false);
     }
@@ -138,11 +151,12 @@ export default function AdminUserDetails() {
 
   return (
     <div>
+      <LoadingOverlay show={actionLoading} message={actionMessage} />
       <ConfirmPopup
         open={confirmSoftDelete}
         title="Soft Delete User?"
         body={`Are you sure you want to soft delete "${user.name}"? Their account will be disabled, while quiz history, event records, and challenge data remain preserved.`}
-        confirmText="Soft Delete"
+        confirmText={actionLoading ? "Soft Deleting..." : "Soft Delete"}
         cancelText="Cancel"
         onConfirm={handleSoftDelete}
         onCancel={() => setConfirmSoftDelete(false)}
@@ -193,14 +207,14 @@ export default function AdminUserDetails() {
         <h2 className="app-strong-text mb-4 text-lg font-bold">Account Actions</h2>
         <div className="flex flex-wrap gap-3">
           {user.isDeleted ? (
-            <button className="rounded bg-red-600 px-4 py-2 text-white" onClick={() => runAction("patch", `/api/admin/users/${user._id}/restore`, "User restored")}>Restore</button>
+            <button className="rounded bg-red-600 px-4 py-2 text-white disabled:opacity-60" disabled={actionLoading} onClick={() => runAction("patch", `/api/admin/users/${user._id}/restore`, "User restored", "Restoring user...")}>Restore</button>
           ) : user.isActive ? (
-            <button className="rounded bg-red-600 px-4 py-2 text-white" onClick={() => runAction("patch", `/api/admin/users/${user._id}/deactivate`, "User deactivated")}>Deactivate</button>
+            <button className="rounded bg-red-600 px-4 py-2 text-white disabled:opacity-60" disabled={actionLoading} onClick={() => runAction("patch", `/api/admin/users/${user._id}/deactivate`, "User deactivated", "Deactivating user...")}>Deactivate</button>
           ) : (
-            <button className="rounded bg-red-600 px-4 py-2 text-white" onClick={() => runAction("patch", `/api/admin/users/${user._id}/activate`, "User activated")}>Activate</button>
+            <button className="rounded bg-red-600 px-4 py-2 text-white disabled:opacity-60" disabled={actionLoading} onClick={() => runAction("patch", `/api/admin/users/${user._id}/activate`, "User activated", "Activating user...")}>Activate</button>
           )}
           {!user.isDeleted && (
-            <button className="analysis-outline-button rounded border border-red-600 px-4 py-2 text-red-600" onClick={() => setConfirmSoftDelete(true)}>Soft Delete</button>
+            <button className="analysis-outline-button rounded border border-red-600 px-4 py-2 text-red-600 disabled:opacity-60" disabled={actionLoading} onClick={() => setConfirmSoftDelete(true)}>Soft Delete</button>
           )}
         </div>
       </section>

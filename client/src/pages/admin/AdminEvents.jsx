@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Edit, Eye, Loader2, RotateCcw, Send, Trash2 } from "lucide-react";
 import apiClient from "../../utils/apiClient";
 import ConfirmPopup from "../../components/ConfirmPopup";
+import LoadingOverlay from "../../components/LoadingOverlay";
 
 const formatDate = (date) => {
   if (!date) {
@@ -57,6 +58,7 @@ export default function AdminEvents() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [message, setMessage] = useState({ type: "info", text: "" });
   const [eventToDelete, setEventToDelete] = useState(null);
   const [eventToUnpublish, setEventToUnpublish] = useState(null);
@@ -89,6 +91,7 @@ export default function AdminEvents() {
   const handlePublish = async (eventId) => {
     try {
       setActionLoading(eventId);
+      setActionMessage("Publishing event and fetching questions...");
       setMessage({
         type: "info",
         text: "Publishing event and fetching questions. Please wait...",
@@ -103,6 +106,7 @@ export default function AdminEvents() {
       });
     } finally {
       setActionLoading("");
+      setActionMessage("");
     }
   };
 
@@ -123,6 +127,7 @@ export default function AdminEvents() {
 
     try {
       setActionLoading(eventToUnpublish._id);
+      setActionMessage("Moving event back to drafts...");
       setMessage({
         type: "info",
         text: "Moving event back to drafts. Please wait...",
@@ -141,6 +146,7 @@ export default function AdminEvents() {
       });
     } finally {
       setActionLoading("");
+      setActionMessage("");
     }
   };
 
@@ -151,6 +157,7 @@ export default function AdminEvents() {
 
     try {
       setActionLoading(eventToDelete._id);
+      setActionMessage("Deleting event...");
       await apiClient.delete(`/api/admin/events/${eventToDelete._id}`);
       setMessage({ type: "success", text: "Event deleted successfully" });
       setEventToDelete(null);
@@ -162,11 +169,13 @@ export default function AdminEvents() {
       });
     } finally {
       setActionLoading("");
+      setActionMessage("");
     }
   };
 
   return (
     <div>
+      <LoadingOverlay show={Boolean(actionLoading)} message={actionMessage} />
       <ConfirmPopup
         open={Boolean(eventToDelete)}
         title="Delete Event?"

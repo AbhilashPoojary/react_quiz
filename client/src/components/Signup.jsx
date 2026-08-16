@@ -14,6 +14,7 @@ import InputPassword from "./InputPassword";
 import InputText from "./InputText";
 import InputFileUpload from "./InputFileUpload";
 import ErrorNotification from "./ErrorNotification";
+import AuthLoadingOverlay from "./AuthLoadingOverlay";
 import ProfileImageEditor from "./ProfileImageEditor";
 import { validateField, validateFile } from "../utils/fieldValidation";
 
@@ -137,6 +138,11 @@ export default function Signup({ switchToSignIn, setAlign }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (loadState || picLoading) {
+      return;
+    }
+
     const errors = {};
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -274,6 +280,10 @@ export default function Signup({ switchToSignIn, setAlign }) {
 
   return (
     <div className="form-container">
+      <AuthLoadingOverlay
+        show={loadState || picLoading}
+        message={picLoading ? "Preparing profile image..." : "Creating your account..."}
+      />
       <h2 className="app-strong-text my-4 text-center font-semibold text-xl">
         Register for the Quiz
       </h2>
@@ -384,17 +394,23 @@ export default function Signup({ switchToSignIn, setAlign }) {
         )}
         <div className="mt-4 flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-end sm:justify-between">
           <button
-            className="bg-red-600 hover:bg-red-800 transition duration-300 ease-in-out rounded px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded bg-red-600 px-3 py-2 text-white transition duration-300 ease-in-out hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={
               loadState ||
               picLoading ||
               emailAvailability.status === "checking" ||
               emailAvailability.status === "unavailable"
             }
+            type="submit"
           >
-            {loadState ? "Submitting..." : "Submit"}
+            Submit
           </button>
-          <Link className="auth-link underline text-blue-500" onClick={switchToSignIn}>
+          <Link
+            className={`auth-link underline text-blue-500 ${
+              loadState || picLoading ? "pointer-events-none opacity-60" : ""
+            }`}
+            onClick={switchToSignIn}
+          >
             Login here
           </Link>
         </div>
