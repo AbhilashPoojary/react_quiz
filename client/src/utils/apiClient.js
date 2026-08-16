@@ -48,6 +48,21 @@ const handlePasswordExpired = (payload = {}) => {
   }
 };
 
+const shouldHandleSessionExpired = (error) => {
+  const url = error?.config?.url || "";
+  const status = error?.response?.status;
+
+  if (status !== 401) {
+    return false;
+  }
+
+  return (
+    url.startsWith("/api") ||
+    url.startsWith("/auth/logout") ||
+    url.startsWith("/auth/change-password")
+  );
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("jwtToken");
   const protectedPath =
@@ -67,7 +82,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error?.response?.data?.code === "PASSWORD_EXPIRED") {
       handlePasswordExpired(error.response.data);
-    } else if (error?.response?.status === 401) {
+    } else if (shouldHandleSessionExpired(error)) {
       handleSessionExpired();
     }
 
