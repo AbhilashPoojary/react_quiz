@@ -14,9 +14,15 @@ const sensitiveKeys = new Set([
 const truncateString = (value) =>
   value.length > 500 ? `${value.slice(0, 500)}...` : value;
 
-const sanitizeValue = (value, key = "") => {
-  if (sensitiveKeys.has(key)) {
+const normalizeKey = (key = "") => String(key).toLowerCase();
+
+const sanitizeValue = (value, key = "", seen = new WeakSet(), depth = 0) => {
+  if (sensitiveKeys.has(key) || sensitiveKeys.has(normalizeKey(key))) {
     return "[REDACTED]";
+  }
+
+  if (depth > 6) {
+    return "[MaxDepth]";
   }
 
   if (typeof value === "string") {
@@ -28,16 +34,24 @@ const sanitizeValue = (value, key = "") => {
       return {
         type: "array",
         length: value.length,
-        sample: value.slice(0, 3).map((item) => sanitizeValue(item)),
+        sample: value
+          .slice(0, 3)
+          .map((item) => sanitizeValue(item, "", seen, depth + 1)),
       };
     }
 
-    return value.map((item) => sanitizeValue(item));
+    return value.map((item) => sanitizeValue(item, "", seen, depth + 1));
   }
 
   if (value && typeof value === "object") {
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+
+    seen.add(value);
+
     return Object.entries(value).reduce((acc, [entryKey, entryValue]) => {
-      acc[entryKey] = sanitizeValue(entryValue, entryKey);
+      acc[entryKey] = sanitizeValue(entryValue, entryKey, seen, depth + 1);
       return acc;
     }, {});
   }
@@ -114,26 +128,35 @@ const requestLogger = (req, res, next) => {
     return originalSend(body);
   };
 
-  res.on("finish", () => {
-    const requestUser = getRequestUser(req);
-    const logPayload = {
-      method: req.method,
-      endpoint: req.originalUrl,
-      statusCode: res.statusCode,
-      durationMs: Date.now() - startedAt,
-      userId: requestUser.userId,
-      name: requestUser.name,
-      requestBody: summarizePayload(req.body),
-      response: summarizePayload(responseBody),
-    };
-    const logMessage = `[request] ${req.method} ${req.originalUrl} ${res.statusCode}`;
+res.on("finish", () => {
+    try {
+      const requestUser = getRequestUser(req);
+      const logPayload = {
+        method: req.method,
+        endpoint: req.originalUrl,
+        statusCode: res.statusCode,
+        durationMs: Date.now() - startedAt,
+        userId: requestUser.userId,
+        name: requestUser.name,
+        requestBody: summarizePayload(req.body),
+        response: summarizePayload(responseBody),
+      };
+      const logMessage = `[request] ${req.method} ${req.originalUrl} ${res.statusCode}`;
 
-    if (res.statusCode >= 400) {
-      console.error(logMessage, logPayload);
-      return;
+      if (res.statusCode >= 400) {
+        console.error(logMessage, logPayload);
+        return;
+      }
+
+      console.info(logMessage, logPayload);
+    } catch (error) {
+      console.error("[request] logging failed", {
+        method: req.method,
+        endpoint: req.originalUrl,
+        statusCode: res.statusCode,
+        error: error.message,
+      });
     }
-
-    console.info(logMessage, logPayload);
   });
 
   next();

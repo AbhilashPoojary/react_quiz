@@ -239,7 +239,12 @@ function App() {
       const savedAttempt = await dispatch(insertScoreCall(obj)).unwrap();
       setLastAttemptId(savedAttempt?._id || "");
       navigate("/result", {
-        state: { attemptId: savedAttempt?._id || "" },
+        state: {
+          attemptId: savedAttempt?._id || "",
+          category,
+          difficulty,
+          questionCount: completedQuestionCount,
+        },
       });
     } catch (error) {
       console.error(error);

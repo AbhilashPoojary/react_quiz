@@ -4,10 +4,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Dropdown from "../components/Dropdown";
 import { useDispatch, useSelector } from "react-redux";
 import { leaderboardCall } from "../slice/leaderboardSlice";
-import { leaderboards, loading } from "../slice/leaderboardSlice";
+import { leaderboards, loading, leaderboardError } from "../slice/leaderboardSlice";
 import { allplayersCall } from "../slice/allplayersSlice";
-import { allplayers } from "../slice/allplayersSlice";
-import { LoadingSkeleton } from "../components/Skeliton.jsx";
+import { allplayers, allplayersLoading, allplayersError } from "../slice/allplayersSlice";
+import { LoadingSkeleton, TableLoadingSkeleton } from "../components/Skeliton.jsx";
 import LeaderBoards from "../components/LeaderBoards";
 import ResultTable from "../components/ResultTable.jsx";
 import { formatDuration } from "../utils/utilFunc";
@@ -30,12 +30,18 @@ export default function Result({
   timeConsumed,
   setTimeConsumed,
 }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [dateSort, setDateSort] = useState("newest");
   const [leaderboardQuestionCountFilter, setLeaderboardQuestionCountFilter] =
     useState("");
+  const [tableCategoryFilter, setTableCategoryFilter] = useState(
+    location.state?.category ?? category ?? ""
+  );
+  const [tableDifficultyFilter, setTableDifficultyFilter] = useState(
+    location.state?.difficulty ?? difficulty ?? ""
+  );
   const [tableQuestionCountFilter, setTableQuestionCountFilter] = useState("");
-  const navigate = useNavigate();
-  const location = useLocation();
   const redirectHome = () => {
     setAlign(false);
     setScore(0);
@@ -49,26 +55,30 @@ export default function Result({
   const dispatch = useDispatch();
   const leaders = useSelector(leaderboards);
   const leadersLoading = useSelector(loading);
+  const leadersError = useSelector(leaderboardError);
   const all = useSelector(allplayers);
+  const allLoading = useSelector(allplayersLoading);
+  const allError = useSelector(allplayersError);
   const savedScore = useSelector(insertedScore);
   const attemptId = location.state?.attemptId || savedScore?._id || "";
-  const maxScore = questionCount * 10;
+  const resultQuestionCount = location.state?.questionCount || questionCount;
+  const maxScore = resultQuestionCount * 10;
   const correctAnswers = Math.round(score / 10);
-  const accuracy = questionCount ? (correctAnswers / questionCount) * 100 : 0;
+  const accuracy = resultQuestionCount ? (correctAnswers / resultQuestionCount) * 100 : 0;
 
   useEffect(() => {
     setAlign(true);
     dispatch(leaderboardCall({ questionCount: leaderboardQuestionCountFilter }));
-  }, [leaderboardQuestionCountFilter]);
+  }, [dispatch, leaderboardQuestionCountFilter, setAlign]);
   useEffect(() => {
     dispatch(
       allplayersCall({
-        category,
-        difficulty,
+        category: tableCategoryFilter,
+        difficulty: tableDifficultyFilter,
         questionCount: tableQuestionCountFilter,
       })
     );
-  }, [category, difficulty, tableQuestionCountFilter]);
+  }, [dispatch, tableCategoryFilter, tableDifficultyFilter, tableQuestionCountFilter]);
   return (
     <div>
       <div className="mt-6 border-b pb-10 text-center">
@@ -91,7 +101,7 @@ export default function Result({
           <div className="leaderboard-card rounded border border-gray-200 bg-white p-4 text-left shadow">
             <p className="app-muted-text text-sm">Correct</p>
             <p className="app-strong-text text-2xl font-bold">
-              {correctAnswers} / {questionCount}
+              {correctAnswers} / {resultQuestionCount}
             </p>
           </div>
           <div className="leaderboard-card rounded border border-gray-200 bg-white p-4 text-left shadow">
@@ -121,6 +131,10 @@ export default function Result({
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:justify-start">
           {leadersLoading ? (
             <LoadingSkeleton />
+          ) : leadersError ? (
+            <div className="w-full rounded border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">
+              Unable to load leaderboards. Please refresh the page.
+            </div>
           ) : (
              <LeaderBoards leaders={leaders} /> 
           )}
@@ -132,8 +146,8 @@ export default function Result({
           <div className="w-full">
             <Dropdown
               data={Categories}
-              state={category}
-              setState={setCategoty}
+              state={tableCategoryFilter}
+              setState={setTableCategoryFilter}
               dropdownId="result-category"
             />
           </div>
@@ -145,8 +159,8 @@ export default function Result({
                 { category: "Medium", value: "medium" },
                 { category: "Hard", value: "hard" },
               ]}
-              state={difficulty}
-              setState={setDifficulty}
+              state={tableDifficultyFilter}
+              setState={setTableDifficultyFilter}
               dropdownId="result-difficulty"
             />
           </div>
@@ -178,7 +192,15 @@ export default function Result({
         </div>
 
         <div className="relative mt-2 w-full max-w-full overflow-x-auto">
-          <ResultTable data={all} itemsPerPage={5} dateSort={dateSort} />
+          {allLoading ? (
+            <TableLoadingSkeleton />
+          ) : allError ? (
+            <div className="rounded border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">
+              Unable to load leaderboard grid. Please refresh the page.
+            </div>
+          ) : (
+            <ResultTable data={all} itemsPerPage={5} dateSort={dateSort} />
+          )}
         </div>
       </div>
       <div className="mt-10 flex flex-col justify-stretch gap-3 sm:flex-row sm:justify-end">

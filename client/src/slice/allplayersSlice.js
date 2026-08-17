@@ -48,5 +48,7 @@ const allplayersSlice = createSlice({
 });
 
 export const loading = (state) => state?.players?.loading;
+export const allplayersLoading = (state) => state?.players?.loading;
+export const allplayersError = (state) => state?.players?.message;
 export const allplayers = (state) => state?.players?.allplayers;
 export default allplayersSlice.reducer;

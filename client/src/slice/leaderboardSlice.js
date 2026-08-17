@@ -52,5 +52,6 @@ const leaderboardSlice = createSlice({
 });
 
 export const loading = (state) => state?.topleaderboard?.loading;
+export const leaderboardError = (state) => state?.topleaderboard?.message;
 export const leaderboards = (state) => state?.topleaderboard?.leaderboards;
 export default leaderboardSlice.reducer;
