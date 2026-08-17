@@ -12,6 +12,7 @@ const { sendTemplateEmail } = require("../services/emailTemplateService");
 const { validateName } = require("../utils/nameValidation");
 const { getPasswordExpiryInfo } = require("../utils/passwordExpiry");
 const { validatePasswordStrength } = require("../utils/passwordValidation");
+const { createWelcomeNotification } = require("../services/welcomeNotificationService");
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ const register = async (req, res) => {
       sessionId,
       passwordChangedAt: new Date(),
     }).save();
+    await createWelcomeNotification(user);
     const safeUser = sanitizeUser(user);
     const passwordExpiry = getPasswordExpiryInfo(user);
     const token = jwt.sign(
