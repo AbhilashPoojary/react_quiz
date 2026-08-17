@@ -21,6 +21,10 @@ const {
   getEventResult,
 } = require("../controllers/Result");
 const verifyToken = require("../middleware/auth");
+const {
+  listUserAchievements,
+  userStreak,
+} = require("../controllers/Achievement");
 const ResultRouter = express.Router();
 
 ResultRouter.get("/questions", verifyToken, getQuestions);
@@ -34,6 +38,8 @@ ResultRouter.get("/profile", verifyToken, profile);
 ResultRouter.patch("/profile", verifyToken, updateProfile);
 ResultRouter.get("/notifications", verifyToken, notifications);
 ResultRouter.get("/notifications/unread-count", verifyToken, unreadNotificationCount);
+ResultRouter.get("/achievements", verifyToken, listUserAchievements);
+ResultRouter.get("/users/me/streak", verifyToken, userStreak);
 ResultRouter.patch("/notifications/read-all", verifyToken, markAllNotificationsRead);
 ResultRouter.patch("/notifications/:id/read", verifyToken, markNotificationRead);
 ResultRouter.patch("/notifications/mark-read", verifyToken, markNotificationsRead);

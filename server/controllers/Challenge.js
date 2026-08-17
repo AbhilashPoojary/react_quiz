@@ -4,6 +4,7 @@ const Challenge = require("../Modals/Challenge");
 const ChallengeAttempt = require("../Modals/ChallengeAttempt");
 const User = require("../Modals/User");
 const { updateGlobalPerformance } = require("../services/globalLeaderboardService");
+const { handleQuizGamification } = require("../services/gamificationService");
 
 const POINTS_PER_QUESTION = 10;
 const DEFAULT_EXPIRY_HOURS = 48;
@@ -512,6 +513,14 @@ const submitChallenge = async (req, res) => {
       completedAt: attempt.completedAt,
     });
 
+    const gamification = await handleQuizGamification({
+      userId: req.user.userId,
+      activityId: attempt._id.toString(),
+      activityType: "CHALLENGE",
+      completedAt: attempt.completedAt,
+      streakEligible: false,
+    });
+
     const activeParticipantIds = getActiveParticipantIds(challenge);
     const attemptCount = await ChallengeAttempt.countDocuments({
       challengeId: challenge._id.toString(),
@@ -536,6 +545,8 @@ const submitChallenge = async (req, res) => {
         timeTaken: attempt.timeTaken,
         completedAt: attempt.completedAt,
       },
+      streak: gamification.streak,
+      newAchievements: gamification.newAchievements,
       redirectTo: `/challenge/${challenge.challengeCode}/results`,
     });
   } catch (error) {

@@ -20,6 +20,7 @@ const {
   getGlobalLeaderboard,
   updateGlobalPerformance,
 } = require("../services/globalLeaderboardService");
+const { handleQuizGamification } = require("../services/gamificationService");
 
 const categoryNames = {
   9: "General Knowledge",
@@ -297,11 +298,13 @@ const result = async (req, res) => {
       others.category,
       others.difficulty
     );
+    const quizType = others.quizType === "SPIN" ? "SPIN" : "NORMAL";
 
     const result = await new Result({
       ...others,
       userId: req.user.userId,
       attemptKey: attemptKey || undefined,
+      quizType,
       score,
       maxScore,
       correctAnswers,
@@ -325,7 +328,19 @@ const result = async (req, res) => {
       completedAt: result.createdAt || new Date(),
     });
 
-    res.status(201).json(result);
+    const gamification = await handleQuizGamification({
+      userId: req.user.userId,
+      activityId: result._id.toString(),
+      activityType: quizType,
+      completedAt: result.createdAt || new Date(),
+      streakEligible: ["NORMAL", "SPIN"].includes(quizType),
+    });
+
+    res.status(201).json({
+      ...result.toObject(),
+      streak: gamification.streak,
+      newAchievements: gamification.newAchievements,
+    });
   } catch (error) {
     if (error.code === 11000 && others.attemptKey) {
       const existingAttempt = await Result.findOne({

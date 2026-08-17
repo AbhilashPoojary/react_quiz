@@ -63,6 +63,7 @@ export default function QuizSetupV2({
   setTimerMode,
   setTotalDuration,
   setTimePerQuestion,
+  gamificationSummary,
 }) {
   const navigate = useNavigate();
   const [formErrors, setFormErrors] = useState({});
@@ -255,6 +256,7 @@ export default function QuizSetupV2({
           <p className="app-muted-text text-sm font-medium">Welcome back,</p>
           <h2 className="app-strong-text text-xl font-semibold">{name || "Player"}</h2>
         </div>
+        {gamificationSummary}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">

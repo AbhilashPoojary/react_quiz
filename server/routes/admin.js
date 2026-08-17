@@ -26,6 +26,12 @@ const {
   unpublishEvent,
 } = require("../controllers/Admin");
 const { updateQuizSetupVersion } = require("../controllers/Settings");
+const {
+  createAchievement,
+  listAdminAchievements,
+  updateAchievement,
+  updateAchievementStatus,
+} = require("../controllers/Achievement");
 const verifyToken = require("../middleware/auth");
 const { requireAdmin } = require("../middleware/auth");
 
@@ -35,6 +41,10 @@ AdminRouter.use(verifyToken, requireAdmin);
 
 AdminRouter.get("/dashboard", dashboard);
 AdminRouter.get("/question-bank", questionBank);
+AdminRouter.get("/achievements", listAdminAchievements);
+AdminRouter.post("/achievements", createAchievement);
+AdminRouter.put("/achievements/:id", updateAchievement);
+AdminRouter.patch("/achievements/:id/status", updateAchievementStatus);
 AdminRouter.patch("/settings/quiz-setup-version", updateQuizSetupVersion);
 AdminRouter.get("/users", listUsers);
 AdminRouter.post("/users/bulk/activate", bulkActivateUsers);

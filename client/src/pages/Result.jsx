@@ -29,6 +29,7 @@ export default function Result({
   questionCount,
   timeConsumed,
   setTimeConsumed,
+  gamification,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,6 +66,8 @@ export default function Result({
   const maxScore = resultQuestionCount * 10;
   const correctAnswers = Math.round(score / 10);
   const accuracy = resultQuestionCount ? (correctAnswers / resultQuestionCount) * 100 : 0;
+  const streak = gamification?.streak;
+  const newAchievements = gamification?.newAchievements || [];
 
   useEffect(() => {
     setAlign(true);
@@ -113,6 +116,39 @@ export default function Result({
         </div>
       </div>
       <div>
+        {(streak || newAchievements.length > 0) && (
+          <section className="mt-6 grid gap-4 lg:grid-cols-2">
+            {streak && (
+              <div className="leaderboard-card rounded border border-red-200 bg-red-600/10 p-5 text-center">
+                <p className="text-sm font-bold uppercase text-red-600">Daily Streak</p>
+                <h2 className="app-strong-text mt-2 text-2xl font-bold">
+                  🔥 {streak.currentStreak} Day Streak
+                </h2>
+                <p className="app-muted-text mt-2 text-sm">
+                  {streak.advancedToday
+                    ? "You kept your streak alive!"
+                    : "You already completed a quiz today."}
+                </p>
+              </div>
+            )}
+            {newAchievements.length > 0 && (
+              <div className="leaderboard-card rounded border border-red-200 bg-red-600/10 p-5 text-center">
+                <p className="text-sm font-bold uppercase text-red-600">
+                  Achievement Unlocked!
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-3">
+                  {newAchievements.map((achievement) => (
+                    <div className="rounded border bg-white p-3 shadow-sm" key={achievement.id}>
+                      <div className="text-3xl">{achievement.icon}</div>
+                      <p className="app-strong-text mt-2 font-bold">{achievement.name}</p>
+                      <p className="app-muted-text text-xs">{achievement.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
         <h1 className="mt-5 font-bold">Leaderboards</h1>
         <div className="mt-3 max-w-xs">
           <Dropdown

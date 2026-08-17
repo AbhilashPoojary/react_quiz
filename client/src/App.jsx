@@ -46,7 +46,9 @@ import AdminUserDetails from "./pages/admin/AdminUserDetails";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import AdminEmailTemplateDetails from "./pages/admin/AdminEmailTemplateDetails";
+import AdminAchievements from "./pages/admin/AdminAchievements";
 import GlobalLeaderboard from "./pages/GlobalLeaderboard";
+import Achievements from "./pages/Achievements";
 
 const createAttemptKey = () => {
   if (window.crypto?.randomUUID) {
@@ -81,6 +83,10 @@ function App() {
     type: "info",
     message: "",
   });
+  const [lastGamification, setLastGamification] = useState({
+    streak: null,
+    newAchievements: [],
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -88,6 +94,7 @@ function App() {
   const timeConsumedRef = useRef(timeConsumed);
   const answerAnalysisRef = useRef(answerAnalysis);
   const attemptKeyRef = useRef("");
+  const quizTypeRef = useRef("NORMAL");
   const userInfo = useSelector(selectUserInfo);
   const readystate = useSelector(isReady);
   const isAuthPage = location.pathname === "/" || location.pathname === "/login";
@@ -101,6 +108,7 @@ function App() {
     const nextDifficulty = overrides.difficulty ?? difficulty;
     const nextQuestionType = overrides.questionType ?? questionType;
     const nextQuestionCount = overrides.questionCount ?? questionCount;
+    const nextQuizType = overrides.quizType ?? "NORMAL";
 
     try {
       setLoading(true);
@@ -110,6 +118,8 @@ function App() {
       setAnswerAnalysis([]);
       answerAnalysisRef.current = [];
       attemptKeyRef.current = createAttemptKey();
+      quizTypeRef.current = nextQuizType;
+      setLastGamification({ streak: null, newAchievements: [] });
       setLastAttemptId("");
       const response = await apiClient.get("/api/questions", {
         params: {
@@ -239,6 +249,7 @@ function App() {
       profilePicture: storedUser?.user?.profilePicture,
       userId: storedUser?.user?._id,
       attemptKey: attemptKeyRef.current || createAttemptKey(),
+      quizType: quizTypeRef.current,
       answers: finalAnswers,
     };
 
@@ -249,6 +260,10 @@ function App() {
 
     try {
       const savedAttempt = await dispatch(insertScoreCall(obj)).unwrap();
+      setLastGamification({
+        streak: savedAttempt?.streak || null,
+        newAchievements: savedAttempt?.newAchievements || [],
+      });
       setLastAttemptId(savedAttempt?._id || "");
       navigate("/result", {
         state: {
@@ -533,6 +548,7 @@ function App() {
                   questionCount={questionCount}
                   timeConsumed={timeConsumed}
                   setTimeConsumed={setTimeConsumed}
+                  gamification={lastGamification}
                 />
               </ProtectedRoute>
             }
@@ -594,6 +610,14 @@ function App() {
             }
           />
           <Route
+            path="/profile/achievements"
+            element={
+              <ProtectedRoute>
+                <Achievements setAlign={setAlign} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/notifications"
             element={
               <ProtectedRoute>
@@ -645,6 +669,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="events" element={<AdminEvents />} />
             <Route path="question-bank" element={<AdminQuestionBank />} />
+            <Route path="achievements" element={<AdminAchievements />} />
             <Route path="events/create" element={<AdminCreateEvent />} />
             <Route path="events/:id/edit" element={<AdminEditEvent />} />
             <Route path="users" element={<AdminUsers />} />

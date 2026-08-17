@@ -191,6 +191,7 @@ export default function SpinChallenge({
       difficulty: picks.difficulty.value,
       questionType: "multiple",
       questionCount: picks.questionCount.value,
+      quizType: "SPIN",
     };
 
     setCategoty(selectedSettings.category);

@@ -6,6 +6,7 @@ import { Popper } from "react-popper";
 import QuizDetails from "../components/QuizDetails";
 import QuizSetupV2 from "../components/QuizSetupV2";
 import LoadingOverlay from "../components/LoadingOverlay";
+import GamificationSummary from "../components/GamificationSummary";
 import apiClient from "../utils/apiClient";
 import { validateField } from "../utils/fieldValidation";
 
@@ -160,6 +161,7 @@ export default function Home({
           message="Checking OpenTDB and internal question bank..."
         />
         <QuizSetupV2
+          gamificationSummary={<GamificationSummary />}
           requestQuestions={requestQuestions}
           name={name}
           category={category}
@@ -194,6 +196,7 @@ export default function Home({
         message="Checking OpenTDB and internal question bank..."
       />
       <div className="w-full lg:w-1/2">
+        <GamificationSummary />
         {/* <h1 className="font-medium text-2xl">Quiz Settings</h1> */}
         <QuizDetails
           name={name}

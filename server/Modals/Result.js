@@ -17,6 +17,11 @@ const Resultschema = new mongoose.Schema(
     attemptKey: {
       type: String,
     },
+    quizType: {
+      type: String,
+      enum: ["NORMAL", "SPIN"],
+      default: "NORMAL",
+    },
     category: {
       type: Number,
       required: true,

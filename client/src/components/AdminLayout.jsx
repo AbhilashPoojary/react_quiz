@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarDays,
   Mail,
+  Trophy,
   Users,
 } from "lucide-react";
 
@@ -33,6 +34,10 @@ export default function AdminLayout() {
           <NavLink className={navLinkClass} to="/admin/question-bank" end>
             <BookOpen size={18} />
             Question Bank
+          </NavLink>
+          <NavLink className={navLinkClass} to="/admin/achievements" end>
+            <Trophy size={18} />
+            Achievements
           </NavLink>
           <NavLink className={navLinkClass} to="/admin/users" end>
             <Users size={18} />
