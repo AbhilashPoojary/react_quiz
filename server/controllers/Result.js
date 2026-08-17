@@ -16,6 +16,10 @@ const {
 } = require("../utils/eventStatus");
 const { validateName } = require("../utils/nameValidation");
 const { getUniqueExistingQuestions } = require("../services/questionExtractionService");
+const {
+  getGlobalLeaderboard,
+  updateGlobalPerformance,
+} = require("../services/globalLeaderboardService");
 
 const categoryNames = {
   9: "General Knowledge",
@@ -244,6 +248,29 @@ const getQuestions = async (req, res) => {
 const result = async (req, res) => {
   const { userId, ...others } = req.body;
   try {
+    const attemptKey = String(others.attemptKey || "").trim();
+
+    if (attemptKey) {
+      const existingAttempt = await Result.findOne({
+        userId: req.user.userId,
+        attemptKey,
+      });
+
+      if (existingAttempt) {
+        await updateGlobalPerformance({
+          userId: req.user.userId,
+          attemptId: existingAttempt._id.toString(),
+          attemptType: "QUIZ",
+          correctAnswers: existingAttempt.correctAnswers,
+          questionCount: existingAttempt.questionCount,
+          difficulty: existingAttempt.difficulty,
+          completedAt: existingAttempt.createdAt || new Date(),
+        });
+
+        return res.status(200).json(existingAttempt);
+      }
+    }
+
     const score = toNumber(others.score);
     const questionCount = Math.max(1, toNumber(others.questionCount, 10));
     const maxScore = Math.max(
@@ -274,6 +301,7 @@ const result = async (req, res) => {
     const result = await new Result({
       ...others,
       userId: req.user.userId,
+      attemptKey: attemptKey || undefined,
       score,
       maxScore,
       correctAnswers,
@@ -286,8 +314,30 @@ const result = async (req, res) => {
       scorePercentage,
       answers,
     }).save();
+
+    await updateGlobalPerformance({
+      userId: req.user.userId,
+      attemptId: result._id.toString(),
+      attemptType: "QUIZ",
+      correctAnswers,
+      questionCount,
+      difficulty: others.difficulty,
+      completedAt: result.createdAt || new Date(),
+    });
+
     res.status(201).json(result);
   } catch (error) {
+    if (error.code === 11000 && others.attemptKey) {
+      const existingAttempt = await Result.findOne({
+        userId: req.user.userId,
+        attemptKey: String(others.attemptKey || "").trim(),
+      });
+
+      if (existingAttempt) {
+        return res.status(200).json(existingAttempt);
+      }
+    }
+
     res.status(500).json({ error: error.message });
   }
 };
@@ -322,6 +372,19 @@ const leaderboard = async (req, res) => {
       .filter((item) => !questionCount || item.questionCount === questionCount);
 
     res.status(200).json(rankResults(normalizedResults).slice(0, 4));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const globalLeaderboard = async (req, res) => {
+  try {
+    const payload = await getGlobalLeaderboard({
+      userId: req.user.userId,
+      limit: req.query.limit,
+    });
+
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -921,6 +984,16 @@ const submitEventResult = async (req, res) => {
       answers,
     }).save();
 
+    await updateGlobalPerformance({
+      userId: req.user.userId,
+      attemptId: result._id.toString(),
+      attemptType: "EVENT",
+      correctAnswers: correctCount,
+      questionCount: totalQuestions,
+      difficulty: event.difficulty,
+      completedAt: result.createdAt || new Date(),
+    });
+
     const payload = await buildEventResultPayload(
       event._id.toString(),
       req.user.userId,
@@ -1017,6 +1090,7 @@ module.exports = {
   result,
   quizAnalysis,
   leaderboard,
+  globalLeaderboard,
   allresult,
   searchResult,
   profile,

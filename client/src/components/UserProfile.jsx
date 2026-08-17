@@ -292,7 +292,7 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
           onClick={handleMyEventsClick}
         >
           <Trophy size={17} />
-          <span>My Events</span>
+          <span>App Events</span>
         </button>
 
         <button

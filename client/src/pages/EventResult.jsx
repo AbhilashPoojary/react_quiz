@@ -158,7 +158,7 @@ export default function EventResult({ setAlign }) {
         className="mx-auto block w-fit rounded bg-red-600 px-4 py-2 text-white transition hover:bg-red-800"
         to="/events"
       >
-        Back to My Events
+        Back to App Events
       </Link>
     </div>
   );

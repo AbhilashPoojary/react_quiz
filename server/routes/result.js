@@ -4,6 +4,7 @@ const {
   result,
   quizAnalysis,
   leaderboard,
+  globalLeaderboard,
   allresult,
   searchResult,
   profile,
@@ -26,7 +27,8 @@ ResultRouter.get("/questions", verifyToken, getQuestions);
 ResultRouter.post("/score", verifyToken, result);
 ResultRouter.get("/score/:attemptId/analysis", verifyToken, quizAnalysis);
 ResultRouter.post("/search", searchResult);
-ResultRouter.get("/leaderboard", leaderboard);
+ResultRouter.get("/leaderboard", verifyToken, globalLeaderboard);
+ResultRouter.get("/attempt-leaderboard", leaderboard);
 ResultRouter.get("/all", allresult);
 ResultRouter.get("/profile", verifyToken, profile);
 ResultRouter.patch("/profile", verifyToken, updateProfile);

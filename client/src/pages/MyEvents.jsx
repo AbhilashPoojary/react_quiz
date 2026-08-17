@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { ArrowRight, RefreshCw, Trophy } from "lucide-react";
 import apiClient from "../utils/apiClient";
 
 const formatDate = (date) => {
@@ -92,7 +92,7 @@ export default function MyEvents({ setAlign }) {
   return (
     <div>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="app-strong-text text-2xl font-bold">My Events</h1>
+        <h1 className="app-strong-text text-2xl font-bold">App Events</h1>
         <button
           className="mt-4 inline-flex items-center justify-center gap-2 rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
           disabled={loading}
@@ -105,6 +105,30 @@ export default function MyEvents({ setAlign }) {
       </div>
 
       {message && <div className="mb-4 text-red-600">{message}</div>}
+
+      <section className="leaderboard-card mb-5 rounded border border-red-200 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-600/10 text-red-600">
+              <Trophy size={24} />
+            </div>
+            <div>
+              <h2 className="app-strong-text text-lg font-bold">
+                Global Top Performers
+              </h2>
+              <p className="app-muted-text mt-1 text-sm">
+                See who's leading across all quizzes
+              </p>
+            </div>
+          </div>
+          <Link
+            className="inline-flex items-center justify-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
+            to="/leaderboard"
+          >
+            View Leaderboard <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
 
       {loading ? (
         <div className="space-y-3">

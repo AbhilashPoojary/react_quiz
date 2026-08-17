@@ -190,6 +190,29 @@ function RecentActivitySkeleton() {
   );
 }
 
+function QuizSetupVersionSkeleton() {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {["V1 - Classic", "V2 - Enhanced"].map((label, index) => (
+        <div
+          className="rounded border border-gray-200 px-4 py-3 dark:border-gray-700"
+          key={label}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-4 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600" />
+            <div className="min-w-0 flex-1">
+              <SkeletonBlock
+                className={index === 0 ? "h-4 w-24" : "h-4 w-28"}
+              />
+              <SkeletonBlock className="mt-2 h-3 w-20" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DetailRow({ label, value }) {
   if (value === undefined || value === null || value === "") return null;
 
@@ -469,27 +492,31 @@ export default function AdminDashboard() {
               Choose which quiz setup experience regular users receive.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {["V1", "V2"].map((version) => (
-              <div
-                className={`rounded border px-4 py-3 transition ${
-                  setupVersion === version
-                    ? "border-red-600 bg-red-600/10"
-                    : "analysis-outline-button border-red-600"
-                }`}
-                key={version}
-              >
-                <CustomRadio
-                  checked={setupVersion === version}
-                  disabled={setupSaving}
-                  label={version === "V1" ? "V1 - Classic" : "V2 - Enhanced"}
-                  name="admin-quiz-setup-version"
-                  value={version}
-                  onChange={updateSetupVersion}
-                />
-              </div>
-            ))}
-          </div>
+          {loading ? (
+            <QuizSetupVersionSkeleton />
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {["V1", "V2"].map((version) => (
+                <div
+                  className={`rounded border px-4 py-3 transition ${
+                    setupVersion === version
+                      ? "border-red-600 bg-red-600/10"
+                      : "analysis-outline-button border-red-600"
+                  }`}
+                  key={version}
+                >
+                  <CustomRadio
+                    checked={setupVersion === version}
+                    disabled={setupSaving}
+                    label={version === "V1" ? "V1 - Classic" : "V2 - Enhanced"}
+                    name="admin-quiz-setup-version"
+                    value={version}
+                    onChange={updateSetupVersion}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {setupSaving ? (
           <SkeletonBlock className="mt-3 h-4 w-48" />

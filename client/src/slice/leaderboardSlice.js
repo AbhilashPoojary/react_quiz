@@ -6,7 +6,7 @@ export const leaderboardCall = createAsyncThunk(
   "leaderboardCall",
   async (payload, { rejectWithValue }) => {
     try {
-      const apiUrl = "/api/leaderboard";
+      const apiUrl = "/api/attempt-leaderboard";
       const params = payload?.questionCount
         ? { questionCount: payload.questionCount }
         : {};

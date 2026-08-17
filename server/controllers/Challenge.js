@@ -3,6 +3,7 @@ const https = require("https");
 const Challenge = require("../Modals/Challenge");
 const ChallengeAttempt = require("../Modals/ChallengeAttempt");
 const User = require("../Modals/User");
+const { updateGlobalPerformance } = require("../services/globalLeaderboardService");
 
 const POINTS_PER_QUESTION = 10;
 const DEFAULT_EXPIRY_HOURS = 48;
@@ -500,6 +501,16 @@ const submitChallenge = async (req, res) => {
       answers,
       completedAt: new Date(),
     }).save();
+
+    await updateGlobalPerformance({
+      userId: req.user.userId,
+      attemptId: attempt._id.toString(),
+      attemptType: "CHALLENGE",
+      correctAnswers,
+      questionCount,
+      difficulty: challenge.config?.difficulty,
+      completedAt: attempt.completedAt,
+    });
 
     const activeParticipantIds = getActiveParticipantIds(challenge);
     const attemptCount = await ChallengeAttempt.countDocuments({

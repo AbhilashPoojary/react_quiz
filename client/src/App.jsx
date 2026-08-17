@@ -46,6 +46,15 @@ import AdminUserDetails from "./pages/admin/AdminUserDetails";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import AdminEmailTemplateDetails from "./pages/admin/AdminEmailTemplateDetails";
+import GlobalLeaderboard from "./pages/GlobalLeaderboard";
+
+const createAttemptKey = () => {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
 
 function App() {
   const [name, setName] = useState("");
@@ -78,6 +87,7 @@ function App() {
   const scoreRef = useRef(score);
   const timeConsumedRef = useRef(timeConsumed);
   const answerAnalysisRef = useRef(answerAnalysis);
+  const attemptKeyRef = useRef("");
   const userInfo = useSelector(selectUserInfo);
   const readystate = useSelector(isReady);
   const isAuthPage = location.pathname === "/" || location.pathname === "/login";
@@ -99,6 +109,7 @@ function App() {
       setTimeConsumed(0);
       setAnswerAnalysis([]);
       answerAnalysisRef.current = [];
+      attemptKeyRef.current = createAttemptKey();
       setLastAttemptId("");
       const response = await apiClient.get("/api/questions", {
         params: {
@@ -227,6 +238,7 @@ function App() {
       scorePercentage,
       profilePicture: storedUser?.user?.profilePicture,
       userId: storedUser?.user?._id,
+      attemptKey: attemptKeyRef.current || createAttemptKey(),
       answers: finalAnswers,
     };
 
@@ -586,6 +598,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Notifications setAlign={setAlign} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <GlobalLeaderboard setAlign={setAlign} />
               </ProtectedRoute>
             }
           />

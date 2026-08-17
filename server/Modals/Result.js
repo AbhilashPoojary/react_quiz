@@ -14,6 +14,9 @@ const Resultschema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    attemptKey: {
+      type: String,
+    },
     category: {
       type: Number,
       required: true,
@@ -100,6 +103,16 @@ const Resultschema = new mongoose.Schema(
     ],
   },
   { timestamps: true }
+);
+
+Resultschema.index(
+  { userId: 1, attemptKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      attemptKey: { $type: "string" },
+    },
+  }
 );
 
 const Result = mongoose.model("score", Resultschema);
