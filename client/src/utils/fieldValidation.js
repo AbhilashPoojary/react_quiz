@@ -67,6 +67,10 @@ export const validateFile = (file, rules = {}, label = "File") => {
     return "";
   }
 
+  if (typeof file === "string") {
+    return file.trim() ? "" : `${label} is mandatory`;
+  }
+
   if (rules.accept?.length) {
     const extension = String(file.name || "")
       .split(".")
