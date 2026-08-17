@@ -67,8 +67,25 @@ export const validateFile = (file, rules = {}, label = "File") => {
     return "";
   }
 
-  if (rules.accept?.length && !rules.accept.includes(file.type)) {
-    return rules.acceptMessage || `Please select a valid ${label.toLowerCase()}`;
+  if (rules.accept?.length) {
+    const extension = String(file.name || "")
+      .split(".")
+      .pop()
+      ?.toLowerCase();
+    const extensionTypeMap = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+    };
+    const inferredType = extensionTypeMap[extension] || "";
+    const isAccepted =
+      rules.accept.includes(file.type) ||
+      Boolean(inferredType && rules.accept.includes(inferredType));
+
+    if (!isAccepted) {
+      return rules.acceptMessage || `Please select a valid ${label.toLowerCase()}`;
+    }
   }
 
   if (rules.maxSizeMb && file.size > rules.maxSizeMb * 1024 * 1024) {
