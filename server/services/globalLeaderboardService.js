@@ -198,6 +198,29 @@ const buildLeaderPayload = (performance, user, rank) => {
   };
 };
 
+const getActiveUsersByIds = async (userIds = []) => {
+  const objectIds = userIds
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (!objectIds.length) {
+    return {};
+  }
+
+  const users = await User.find({
+    _id: { $in: objectIds },
+    isActive: { $nin: [false, "false"] },
+    isDeleted: { $nin: [true, "true"] },
+  })
+    .select("name profilePicture isActive isDeleted")
+    .lean();
+
+  return users.reduce((acc, user) => {
+    acc[user._id.toString()] = user;
+    return acc;
+  }, {});
+};
+
 const buildFallbackLeaderboardFromQuizAttempts = async ({ userId, limit = 50 }) => {
   const parsedLimit = Math.min(100, Math.max(1, toNumber(limit, 50)));
   const attempts = await Result.find()
@@ -235,9 +258,14 @@ const buildFallbackLeaderboardFromQuizAttempts = async ({ userId, limit = 50 }) 
 
     return acc;
   }, {});
+  const activeUserMap = await getActiveUsersByIds(Object.keys(grouped));
   const ranked = Object.values(grouped)
+    .filter((performance) => activeUserMap[performance.userId])
     .map((performance) => ({
       ...performance,
+      username: activeUserMap[performance.userId]?.name || performance.username,
+      profileImage:
+        activeUserMap[performance.userId]?.profilePicture || performance.profileImage,
       accuracy: performance.totalQuestions
         ? (performance.totalCorrectAnswers / performance.totalQuestions) * 100
         : 0,
@@ -283,23 +311,16 @@ const getGlobalLeaderboard = async ({ userId, limit = 50 }) => {
   const userIds = Array.from(
     new Set([...topUserIds, ...(currentPerformance ? [currentPerformance.userId] : [])])
   );
-  const objectIds = userIds
-    .filter((id) => mongoose.Types.ObjectId.isValid(id))
-    .map((id) => new mongoose.Types.ObjectId(id));
-  const users = await User.find({ _id: { $in: objectIds } })
-    .select("name profilePicture")
-    .lean();
-  const userMap = users.reduce((acc, user) => {
-    acc[user._id.toString()] = user;
-    return acc;
-  }, {});
-  const leaders = performances.map((performance, index) =>
-    buildLeaderPayload(performance, userMap[performance.userId], index + 1)
-  );
+  const userMap = await getActiveUsersByIds(userIds);
+  const leaders = performances
+    .filter((performance) => userMap[performance.userId])
+    .map((performance, index) =>
+      buildLeaderPayload(performance, userMap[performance.userId], index + 1)
+    );
 
   let currentUser = null;
 
-  if (currentPerformance) {
+  if (currentPerformance && userMap[currentPerformance.userId]) {
     const betterCount = await GlobalPerformance.countDocuments({
       $or: [
         { leaderboardPoints: { $gt: currentPerformance.leaderboardPoints } },

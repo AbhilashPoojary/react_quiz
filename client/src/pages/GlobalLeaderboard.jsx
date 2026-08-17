@@ -5,68 +5,12 @@ import apiClient from "../utils/apiClient";
 
 const formatNumber = (value) => new Intl.NumberFormat("en").format(Number(value) || 0);
 const formatAccuracy = (value) => `${Number(value || 0).toFixed(1)}%`;
-const difficultyMultiplier = {
-  easy: 1,
-  medium: 1.25,
-  hard: 1.5,
-};
-
-const calculateLegacyPoints = (attempt) => {
-  const multiplier =
-    difficultyMultiplier[String(attempt?.difficulty || "").toLowerCase()] || 1;
-
-  return Math.round((Number(attempt?.correctAnswers) || 0) * 10 * multiplier);
-};
-
-const normalizeLegacyLeaderboard = (attempts = []) => {
-  const grouped = attempts.reduce((acc, attempt) => {
-    const userId = attempt.userId || attempt._id;
-
-    if (!userId) {
-      return acc;
-    }
-
-    if (!acc[userId]) {
-      acc[userId] = {
-        userId,
-        username: attempt.name || "Unknown Player",
-        profileImage: attempt.profilePicture || "",
-        leaderboardPoints: 0,
-        totalQuizzes: 0,
-        totalQuestions: 0,
-        totalCorrectAnswers: 0,
-      };
-    }
-
-    acc[userId].leaderboardPoints += calculateLegacyPoints(attempt);
-    acc[userId].totalQuizzes += 1;
-    acc[userId].totalQuestions += Number(attempt.questionCount) || 0;
-    acc[userId].totalCorrectAnswers += Number(attempt.correctAnswers) || 0;
-
-    return acc;
-  }, {});
-
-  return Object.values(grouped)
-    .map((player) => ({
-      ...player,
-      accuracy: player.totalQuestions
-        ? (player.totalCorrectAnswers / player.totalQuestions) * 100
-        : 0,
-    }))
-    .sort((first, second) => second.leaderboardPoints - first.leaderboardPoints)
-    .map((player, index) => ({ ...player, rank: index + 1 }));
-};
 
 const normalizeLeaderboardResponse = (data) => {
   if (Array.isArray(data)) {
-    const leaders = normalizeLegacyLeaderboard(data);
-    const currentUserId = JSON.parse(localStorage.getItem("currentUser") || "{}")
-      ?.user?._id;
-
     return {
-      leaders,
-      currentUser:
-        leaders.find((player) => player.userId === currentUserId) || null,
+      leaders: [],
+      currentUser: null,
     };
   }
 
