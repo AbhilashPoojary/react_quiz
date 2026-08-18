@@ -67,6 +67,7 @@ export default function Notifications({ setAlign }) {
       setLoading(true);
       const response = await apiClient.get("/api/notifications");
       setNotifications(response.data);
+      setMessage({ type: "info", text: "" });
     } catch (error) {
       setMessage({
         type: "error",
@@ -85,6 +86,7 @@ export default function Notifications({ setAlign }) {
           item._id === id ? { ...item, isRead: true, read: true } : item
         )
       );
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch (error) {
       setMessage({
         type: "error",
@@ -99,6 +101,7 @@ export default function Notifications({ setAlign }) {
       setNotifications((prev) =>
         prev.map((item) => ({ ...item, isRead: true, read: true }))
       );
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch (error) {
       setMessage({
         type: "error",

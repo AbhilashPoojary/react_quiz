@@ -70,6 +70,12 @@ export default function UserProfile({ logoutUser, loggedinUser, name }) {
     if (userName) {
       loadUnreadCount();
     }
+
+    window.addEventListener("notifications-updated", loadUnreadCount);
+
+    return () => {
+      window.removeEventListener("notifications-updated", loadUnreadCount);
+    };
   }, [userName, isOpen]);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 const https = require("https");
+const mongoose = require("mongoose");
 const Result = require("../Modals/Result");
 const User = require("../Modals/User");
 const Event = require("../Modals/Event");
@@ -669,7 +670,19 @@ const notifications = async (req, res) => {
       (item, index, list) =>
         list.findIndex((entry) => entry.eventId === item.eventId) === index
     );
-    const eventIds = latestItems.map((item) => item.eventId);
+    const eventBackedItems = latestItems.filter((item) =>
+      mongoose.Types.ObjectId.isValid(item.eventId)
+    );
+    const standaloneNotifications = latestItems
+      .filter((item) => !mongoose.Types.ObjectId.isValid(item.eventId))
+      .map((item) => ({
+        ...item.toObject(),
+        _id: item._id.toString(),
+        type: item.eventId?.startsWith("WELCOME:") ? "WELCOME" : "GENERAL",
+        isRead: item.read,
+        source: "SYSTEM",
+      }));
+    const eventIds = eventBackedItems.map((item) => item.eventId);
     const [events, registrations] = await Promise.all([
       Event.find({ _id: { $in: eventIds } }).select(
         "eventName categoryName difficulty eventDate startTime startAt endAt duration timerMode totalDuration timePerQuestion status registrationDeadline"
@@ -694,7 +707,7 @@ const notifications = async (req, res) => {
     });
     const submittedEventIds = new Set(results.map((item) => item.eventId));
 
-    const eventNotifications = latestItems
+    const eventNotifications = eventBackedItems
         .filter((item) => eventMap[item.eventId])
         .map((item) => ({
           ...item.toObject(),
@@ -710,7 +723,7 @@ const notifications = async (req, res) => {
         }));
 
     res.status(200).json(
-      [...generalNotifications, ...eventNotifications].sort(
+      [...generalNotifications, ...standaloneNotifications, ...eventNotifications].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       )
     );
