@@ -472,13 +472,19 @@ const getUserAchievements = async (userId, { includeInactiveUnlocked = false } =
         stats,
         snapshot
       );
+      const target = Math.max(1, toNumber(achievement.target, 1));
+      const progress = Math.min(
+        target,
+        Math.max(
+          toNumber(existingProgress?.progress),
+          toNumber(computedProgress)
+        )
+      );
 
       return formatUserAchievement(achievement, {
         ...existingProgress,
-        progress: Math.max(
-          toNumber(existingProgress?.progress),
-          toNumber(computedProgress)
-        ),
+        progress,
+        unlocked: Boolean(existingProgress?.unlocked) || progress >= target,
       });
     })
   );

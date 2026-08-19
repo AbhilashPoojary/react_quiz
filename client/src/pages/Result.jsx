@@ -62,9 +62,13 @@ export default function Result({
   const allError = useSelector(allplayersError);
   const savedScore = useSelector(insertedScore);
   const attemptId = location.state?.attemptId || savedScore?._id || "";
-  const resultQuestionCount = location.state?.questionCount || questionCount;
+  const resultQuestionCount = Number(location.state?.questionCount || questionCount || 0);
   const maxScore = resultQuestionCount * 10;
-  const correctAnswers = Math.round(score / 10);
+  const safeScore = Math.min(Number(score || 0), maxScore || Number(score || 0));
+  const correctAnswers = Math.min(
+    resultQuestionCount,
+    Math.round(safeScore / 10)
+  );
   const accuracy = resultQuestionCount ? (correctAnswers / resultQuestionCount) * 100 : 0;
   const streak = gamification?.streak;
   const newAchievements = gamification?.newAchievements || [];
@@ -92,7 +96,7 @@ export default function Result({
           <div className="leaderboard-card rounded border border-gray-200 bg-white p-4 text-left shadow">
             <p className="app-muted-text text-sm">Score</p>
             <p className="app-strong-text text-2xl font-bold">
-              {score} / {maxScore}
+              {safeScore} / {maxScore}
             </p>
           </div>
           <div className="leaderboard-card rounded border border-gray-200 bg-white p-4 text-left shadow">

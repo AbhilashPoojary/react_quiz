@@ -192,16 +192,8 @@ export default function SpinChallenge({
       questionType: "multiple",
       questionCount: picks.questionCount.value,
       quizType: "SPIN",
+      requireExactCount: true,
     };
-
-    setCategoty(selectedSettings.category);
-    setDifficulty(selectedSettings.difficulty);
-    setQuestionType(selectedSettings.questionType);
-    setQuestionCount(selectedSettings.questionCount);
-    setEnableTimer(true);
-    setTimerMode("PER_QUESTION");
-    setTotalDuration(null);
-    setTimePerQuestion(10);
 
     try {
       setStarting(true);
@@ -215,6 +207,22 @@ export default function SpinChallenge({
         );
         return;
       }
+
+      if (result.count < selectedSettings.questionCount) {
+        setError(
+          `Only ${result.count} questions were found for this spin, but the wheel picked ${selectedSettings.questionCount}. Please spin again or try another setup.`
+        );
+        return;
+      }
+
+      setCategoty(selectedSettings.category);
+      setDifficulty(selectedSettings.difficulty);
+      setQuestionType(selectedSettings.questionType);
+      setQuestionCount(selectedSettings.questionCount);
+      setEnableTimer(true);
+      setTimerMode("PER_QUESTION");
+      setTotalDuration(null);
+      setTimePerQuestion(10);
 
       navigate("/quiz");
     } finally {

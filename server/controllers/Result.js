@@ -88,35 +88,33 @@ const toNumber = (value, fallback = 0) => {
 const normalizeResult = (item) => {
   const result = item.toObject ? item.toObject() : { ...item };
   const questionCount = Math.max(1, toNumber(result.questionCount, 10));
-  const score = toNumber(result.score);
   const maxScore = Math.max(
     1,
     toNumber(result.maxScore, questionCount * POINTS_PER_QUESTION)
   );
+  const rawScore = toNumber(result.score);
   const correctAnswers = Math.min(
     questionCount,
     Math.max(
       0,
-      toNumber(result.correctAnswers, Math.round(score / POINTS_PER_QUESTION))
+      toNumber(result.correctAnswers, Math.round(rawScore / POINTS_PER_QUESTION))
     )
   );
+  const score = Math.min(maxScore, correctAnswers * POINTS_PER_QUESTION);
   const wrongAnswers = Math.max(
     0,
-    toNumber(result.wrongAnswers, questionCount - correctAnswers)
+    Math.min(
+      questionCount - correctAnswers,
+      toNumber(result.wrongAnswers, questionCount - correctAnswers)
+    )
   );
   const timeTaken = toNumber(result.timeTaken, toNumber(result.totaltime));
-  const accuracy = toNumber(
-    result.accuracy,
-    (correctAnswers / questionCount) * 100
-  );
+  const accuracy = (correctAnswers / questionCount) * 100;
   const averageTimePerQuestion = toNumber(
     result.averageTimePerQuestion,
     timeTaken / questionCount
   );
-  const scorePercentage = toNumber(
-    result.scorePercentage,
-    (score / maxScore) * 100
-  );
+  const scorePercentage = (score / maxScore) * 100;
 
   return {
     ...result,
@@ -146,12 +144,24 @@ const rankResults = (items) =>
     return a.averageTimePerQuestion - b.averageTimePerQuestion;
   });
 
-const normalizeAnswerAnalysis = (answers = [], fallbackCategory, fallbackDifficulty) =>
-  (Array.isArray(answers) ? answers : []).map((item) => {
-    const isCorrect = Boolean(item.isCorrect);
+const normalizeAnswerAnalysis = (
+  answers = [],
+  fallbackCategory,
+  fallbackDifficulty,
+  maxCount = 0
+) => {
+  const answerMap = new Map();
 
-    return {
+  (Array.isArray(answers) ? answers : []).forEach((item, index) => {
+    const isCorrect = Boolean(item.isCorrect);
+    const questionIndex = Math.max(0, toNumber(item.questionIndex, index));
+    const key = Number.isFinite(Number(item.questionIndex))
+      ? `index:${questionIndex}`
+      : `question:${item.question || index}`;
+
+    answerMap.set(key, {
       question: String(item.question || ""),
+      questionIndex,
       options: Array.isArray(item.options)
         ? item.options.map((option) => String(option))
         : [],
@@ -160,13 +170,14 @@ const normalizeAnswerAnalysis = (answers = [], fallbackCategory, fallbackDifficu
       isCorrect,
       category: String(item.category || fallbackCategory || ""),
       difficulty: String(item.difficulty || fallbackDifficulty || ""),
-      pointsEarned: Number.isFinite(Number(item.pointsEarned))
-        ? Number(item.pointsEarned)
-        : isCorrect
-        ? POINTS_PER_QUESTION
-        : 0,
-    };
+      pointsEarned: isCorrect ? POINTS_PER_QUESTION : 0,
+    });
   });
+
+  return Array.from(answerMap.values())
+    .sort((a, b) => a.questionIndex - b.questionIndex)
+    .slice(0, maxCount || undefined);
+};
 
 const getQuestions = async (req, res) => {
   const {
@@ -273,22 +284,26 @@ const result = async (req, res) => {
       }
     }
 
-    const score = toNumber(others.score);
     const questionCount = Math.max(1, toNumber(others.questionCount, 10));
     const maxScore = Math.max(
       1,
       toNumber(others.maxScore, questionCount * POINTS_PER_QUESTION)
     );
+    const rawScore = toNumber(others.score);
     const correctAnswers = Math.min(
       questionCount,
       Math.max(
         0,
-        toNumber(others.correctAnswers, Math.round(score / POINTS_PER_QUESTION))
+        toNumber(others.correctAnswers, Math.round(rawScore / POINTS_PER_QUESTION))
       )
     );
+    const score = Math.min(maxScore, correctAnswers * POINTS_PER_QUESTION);
     const wrongAnswers = Math.max(
       0,
-      toNumber(others.wrongAnswers, questionCount - correctAnswers)
+      Math.min(
+        questionCount - correctAnswers,
+        toNumber(others.wrongAnswers, questionCount - correctAnswers)
+      )
     );
     const timeTaken = toNumber(others.timeTaken, toNumber(others.totaltime));
     const accuracy = (correctAnswers / questionCount) * 100;
@@ -297,7 +312,8 @@ const result = async (req, res) => {
     const answers = normalizeAnswerAnalysis(
       others.answers,
       others.category,
-      others.difficulty
+      others.difficulty,
+      questionCount
     );
     const quizType = others.quizType === "SPIN" ? "SPIN" : "NORMAL";
 

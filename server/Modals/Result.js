@@ -72,6 +72,10 @@ const Resultschema = new mongoose.Schema(
     },
     answers: [
       {
+        questionIndex: {
+          type: Number,
+          default: 0,
+        },
         question: {
           type: String,
           required: true,

@@ -58,6 +58,26 @@ const createAttemptKey = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
+const normalizeAttemptAnswers = (answers = [], maxCount = 0) => {
+  const answerMap = new Map();
+
+  (Array.isArray(answers) ? answers : []).forEach((item, fallbackIndex) => {
+    const hasQuestionIndex = Number.isInteger(item?.questionIndex);
+    const key = hasQuestionIndex
+      ? `index:${item.questionIndex}`
+      : `question:${item?.question || fallbackIndex}`;
+
+    answerMap.set(key, {
+      ...item,
+      questionIndex: hasQuestionIndex ? item.questionIndex : fallbackIndex,
+    });
+  });
+
+  return Array.from(answerMap.values())
+    .sort((a, b) => (a.questionIndex ?? 0) - (b.questionIndex ?? 0))
+    .slice(0, maxCount || undefined);
+};
+
 function App() {
   const [name, setName] = useState("");
   const [category, setCategoty] = useState("");
@@ -109,6 +129,7 @@ function App() {
     const nextQuestionType = overrides.questionType ?? questionType;
     const nextQuestionCount = overrides.questionCount ?? questionCount;
     const nextQuizType = overrides.quizType ?? "NORMAL";
+    const requireExactCount = Boolean(overrides.requireExactCount);
 
     try {
       setLoading(true);
@@ -139,11 +160,20 @@ function App() {
         };
       }
 
+      if (requireExactCount && questions.length < Number(nextQuestionCount)) {
+        return {
+          success: false,
+          count: questions.length,
+          requestedCount: Number(nextQuestionCount),
+          message: `Only ${questions.length} questions were found for this setup. Please spin again or try another setup.`,
+        };
+      }
+
       setQuizData(questions);
       setQuizIndex(0);
       setCurrentQuestion([]);
 
-      return { success: true };
+      return { success: true, count: questions.length, requestedCount: Number(nextQuestionCount) };
     } catch (error) {
       console.error(error);
       const status = error?.response?.status;
@@ -175,19 +205,21 @@ function App() {
         ? currentQuestion.answers
         : [question.correct_answer, ...(question.incorrect_answers || [])];
 
-    const nextAnswers = [
-      ...answerAnalysisRef.current,
-      {
-        question: question.question,
-        options,
-        selectedAnswer,
-        correctAnswer: question.correct_answer,
-        isCorrect,
-        category: question.category || category,
-        difficulty: question.difficulty || difficulty,
-        pointsEarned: isCorrect ? 10 : 0,
-      },
-    ];
+    const answerItem = {
+      questionIndex: quizIndex,
+      question: question.question,
+      options,
+      selectedAnswer,
+      correctAnswer: question.correct_answer,
+      isCorrect,
+      category: question.category || category,
+      difficulty: question.difficulty || difficulty,
+      pointsEarned: isCorrect ? 10 : 0,
+    };
+    const nextAnswers = normalizeAttemptAnswers(
+      [...answerAnalysisRef.current, answerItem],
+      quizData.length || Number(questionCount)
+    );
 
     answerAnalysisRef.current = nextAnswers;
     setAnswerAnalysis(nextAnswers);
@@ -201,6 +233,7 @@ function App() {
         : [question.correct_answer, ...(question.incorrect_answers || [])];
 
     return {
+      questionIndex: index,
       question: question.question,
       options,
       selectedAnswer,
@@ -214,16 +247,19 @@ function App() {
 
   const finishQuiz = async ({ answersOverride, timeTaken } = {}) => {
     const storedUser = JSON.parse(localStorage.getItem("currentUser"));
-    const finalAnswers = answersOverride || answerAnalysisRef.current;
-    const latestScore = finalAnswers.reduce(
-      (sum, item) => sum + (item.isCorrect ? 10 : 0),
-      0
+    const completedQuestionCount = quizData.length || Number(questionCount);
+    const finalAnswers = normalizeAttemptAnswers(
+      answersOverride || answerAnalysisRef.current,
+      completedQuestionCount
     );
+    const correctAnswers = Math.min(
+      completedQuestionCount,
+      finalAnswers.filter((item) => item.isCorrect).length
+    );
+    const latestScore = correctAnswers * 10;
     const latestTimeConsumed =
       timeTaken === undefined ? timeConsumedRef.current : timeTaken;
-    const completedQuestionCount = quizData.length || Number(questionCount);
     const maxScore = completedQuestionCount * 10;
-    const correctAnswers = Math.round(latestScore / 10);
     const wrongAnswers = Math.max(0, completedQuestionCount - correctAnswers);
     const accuracy = completedQuestionCount
       ? (correctAnswers / completedQuestionCount) * 100
@@ -283,14 +319,28 @@ function App() {
   };
 
   const finishQuizWithUnanswered = async (timeTaken) => {
-    const answeredCount = answerAnalysisRef.current.length;
+    const existingAnswers = normalizeAttemptAnswers(
+      answerAnalysisRef.current,
+      quizData.length || Number(questionCount)
+    );
+    const answeredIndexes = new Set(
+      existingAnswers
+        .map((item) => item.questionIndex)
+        .filter((index) => Number.isInteger(index))
+    );
     const unansweredAnswers = quizData
-      .slice(answeredCount)
-      .map((question, offset) =>
-        buildAnswerAnalysisItem(question, "", answeredCount + offset)
-      );
+      .map((question, index) =>
+        answeredIndexes.size
+          ? answeredIndexes.has(index)
+            ? null
+            : buildAnswerAnalysisItem(question, "", index)
+          : index >= existingAnswers.length
+          ? buildAnswerAnalysisItem(question, "", index)
+          : null
+      )
+      .filter(Boolean);
     await finishQuiz({
-      answersOverride: [...answerAnalysisRef.current, ...unansweredAnswers],
+      answersOverride: [...existingAnswers, ...unansweredAnswers],
       timeTaken,
     });
   };

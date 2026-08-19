@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Timer } from "lucide-react";
+import { Loader2, Timer } from "lucide-react";
 import QuizOptions from "../components/QuizOptions";
 import ConfirmPopup from "./ConfirmPopup";
 
@@ -45,6 +45,8 @@ export default function QuizComponent({
     counter <= dangerThreshold;
   const [showConfirm, setShowConfirm] = useState(false);
   const [optionLocked, setOptionLocked] = useState(false);
+  const [submittingResult, setSubmittingResult] = useState(false);
+  const optionLockedRef = useRef(false);
   const timeoutHandledRef = useRef(false);
   const nextQuestionRef = useRef(nextQuestion);
   const recordAnswerRef = useRef(recordAnswer);
@@ -73,10 +75,11 @@ export default function QuizComponent({
   }, [finishQuizWithUnanswered]);
 
   const checkAnswer = (item, index) => {
-    if (optionLocked) {
+    if (optionLockedRef.current || optionLocked) {
       return;
     }
 
+    optionLockedRef.current = true;
     setOptionLocked(true);
     let updatedBg = [...bg];
     const isCorrect = item === quizData.correct_answer;
@@ -99,17 +102,31 @@ export default function QuizComponent({
       ? questionTimeLimit - counter
       : Math.round((Date.now() - questionStartedAtRef.current) / 1000);
     setTimeConsumed((prevstate) => prevstate + elapsedSeconds);
-    setTimeout(() => {
-      nextQuestionRef.current();
+    setTimeout(async () => {
+      const isFinalQuestion = quizIndex + 1 >= totalQuestions;
+
+      if (isFinalQuestion) {
+        setSubmittingResult(true);
+      }
+
+      await nextQuestionRef.current();
+
+      if (isFinalQuestion) {
+        return;
+      }
+
       if (effectiveTimerMode === "PER_QUESTION") {
         setCounter(questionTimeLimit);
       }
       setBg(defaultOptionStyles);
+      optionLockedRef.current = false;
       setOptionLocked(false);
     }, showAnswerFeedback ? 500 : 150);
   };
 
   useEffect(() => {
+    optionLockedRef.current = false;
+    setSubmittingResult(false);
     timeoutHandledRef.current = false;
     questionStartedAtRef.current = Date.now();
     if (effectiveTimerMode === "PER_QUESTION") {
@@ -138,13 +155,20 @@ export default function QuizComponent({
   }, [counter, enableTimer]);
 
   useEffect(() => {
-    if (!enableTimer || counter !== 0 || timeoutHandledRef.current) {
+    if (
+      !enableTimer ||
+      counter !== 0 ||
+      timeoutHandledRef.current ||
+      optionLockedRef.current
+    ) {
       return undefined;
     }
 
+    optionLockedRef.current = true;
     timeoutHandledRef.current = true;
 
     if (effectiveTimerMode === "TOTAL") {
+      setSubmittingResult(true);
       finishQuizWithUnansweredRef.current?.(totalTimeLimit);
       return undefined;
     }
@@ -160,8 +184,21 @@ export default function QuizComponent({
     recordAnswerRef.current("");
     setTimeConsumed((prevstate) => prevstate + questionTimeLimit);
 
-    const timeout = setTimeout(() => {
-      nextQuestionRef.current();
+    const timeout = setTimeout(async () => {
+      const isFinalQuestion = quizIndex + 1 >= totalQuestions;
+
+      if (isFinalQuestion) {
+        setSubmittingResult(true);
+      }
+
+      await nextQuestionRef.current();
+
+      if (isFinalQuestion) {
+        return;
+      }
+
+      optionLockedRef.current = false;
+      setOptionLocked(false);
     }, showAnswerFeedback ? 500 : 150);
 
     return () => clearTimeout(timeout);
@@ -174,6 +211,8 @@ export default function QuizComponent({
     setTimeConsumed,
     showAnswerFeedback,
     totalTimeLimit,
+    quizIndex,
+    totalQuestions,
   ]);
 
   const handleQuitConfirm = () => {
@@ -192,6 +231,16 @@ export default function QuizComponent({
         onConfirm={handleQuitConfirm}
         onCancel={() => setShowConfirm(false)}
       />
+      {submittingResult ? (
+        <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center">
+          <Loader2 className="animate-spin text-red-600" size={34} />
+          <h1 className="app-strong-text text-xl font-bold">Preparing your result</h1>
+          <p className="app-muted-text text-sm">
+            Your last answer is saved. Taking you to the result page now.
+          </p>
+        </div>
+      ) : (
+        <>
       <div className="flex flex-col items-center gap-2 border-b py-5 text-center sm:flex-row sm:justify-between sm:text-left">
         <span className="font-semibold text-lg">{quizData?.category}</span>
         <h1 className="font-semibold text-lg">{name}</h1>
@@ -232,6 +281,8 @@ export default function QuizComponent({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
