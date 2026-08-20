@@ -470,9 +470,11 @@ const profile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const results = await Result.find({ userId: req.user.userId }).sort({
+    const results = (
+      await Result.find({ userId: req.user.userId }).sort({
       createdAt: -1,
-    });
+      })
+    ).map(normalizeResult);
 
     const gamesPlayed = results.length;
     const highestScore = gamesPlayed
@@ -480,6 +482,12 @@ const profile = async (req, res) => {
       : 0;
     const totalScore = results.reduce((sum, item) => sum + item.score, 0);
     const avgScore = gamesPlayed ? Math.round(totalScore / gamesPlayed) : 0;
+    const averageAccuracy = gamesPlayed
+      ? Math.round(
+          results.reduce((sum, item) => sum + toNumber(item.accuracy), 0) /
+            gamesPlayed
+        )
+      : 0;
 
     const categoryMap = results.reduce((acc, item) => {
       const category = item.category;
@@ -490,12 +498,14 @@ const profile = async (req, res) => {
           categoryName: categoryNames[category] || "Unknown",
           gamesPlayed: 0,
           totalScore: 0,
+          totalAccuracy: 0,
           highestScore: 0,
         };
       }
 
       acc[category].gamesPlayed += 1;
       acc[category].totalScore += item.score;
+      acc[category].totalAccuracy += toNumber(item.accuracy);
       acc[category].highestScore = Math.max(
         acc[category].highestScore,
         item.score
@@ -507,7 +517,11 @@ const profile = async (req, res) => {
     const performanceByCategory = Object.values(categoryMap)
       .map((item) => ({
         ...item,
-        avgScore: Math.round(item.totalScore / item.gamesPlayed),
+        avgRawScore: Math.round(item.totalScore / item.gamesPlayed),
+        avgScore: Math.min(
+          100,
+          Math.round(item.totalAccuracy / item.gamesPlayed)
+        ),
       }))
       .sort((a, b) => b.avgScore - a.avgScore);
 
@@ -579,7 +593,7 @@ const profile = async (req, res) => {
         gamesPlayed,
         highestScore,
         avgScore,
-        accuracy: avgScore,
+        accuracy: Math.min(100, averageAccuracy),
       },
       performanceByCategory,
       recentHistory,

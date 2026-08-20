@@ -21,6 +21,8 @@ const getThemeColor = (name, fallback) => {
   );
 };
 
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
 export default function CategoryBubbleChart({ data }) {
   const sortedData = useMemo(
     () => [...data].sort((a, b) => b.avgScore - a.avgScore),
@@ -49,7 +51,7 @@ export default function CategoryBubbleChart({ data }) {
         data: [
           {
             x: index + 1,
-            y: Number(item.avgScore) || 0,
+            y: clampPercent(item.avgScore),
             r: radius,
             gamesPlayed,
           },

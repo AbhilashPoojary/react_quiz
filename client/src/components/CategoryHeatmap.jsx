@@ -9,6 +9,8 @@ const getHeatColor = (score) => {
   return "bg-red-200";
 };
 
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
 export default function CategoryHeatmap({ data }) {
   const sortedData = useMemo(
     () => [...data].sort((a, b) => b.avgScore - a.avgScore),
@@ -23,7 +25,7 @@ export default function CategoryHeatmap({ data }) {
     <div className="profile-chart-panel rounded border p-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {sortedData.map((item) => {
-          const score = Number(item.avgScore) || 0;
+          const score = clampPercent(item.avgScore);
           return (
             <div
               className={`${getHeatColor(

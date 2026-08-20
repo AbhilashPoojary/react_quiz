@@ -32,6 +32,8 @@ const getThemeColor = (name, fallback) => {
   );
 };
 
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
 export default function CategoryPolarAreaChart({ data }) {
   const polarData = useMemo(
     () => [...data].sort((a, b) => b.avgScore - a.avgScore).slice(0, 8),
@@ -51,7 +53,7 @@ export default function CategoryPolarAreaChart({ data }) {
     datasets: [
       {
         label: "Accuracy",
-        data: polarData.map((item) => item.avgScore),
+        data: polarData.map((item) => clampPercent(item.avgScore)),
         backgroundColor: polarData.map((_, index) => colors[index % colors.length]),
         borderColor: "#dc2626",
         borderWidth: 1,

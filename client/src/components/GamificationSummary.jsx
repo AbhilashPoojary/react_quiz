@@ -5,13 +5,39 @@ import apiClient from "../utils/apiClient";
 
 const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
 
-const getActiveStreakIndexes = (currentStreak = 0) => {
+const getWeekdayIndexFromDateKey = (dateKey) => {
+  if (!dateKey) {
+    return null;
+  }
+
+  const [year, month, day] = String(dateKey).split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return (new Date(year, month - 1, day).getDay() + 6) % 7;
+};
+
+const getActiveStreakIndexes = (streak = {}) => {
+  const {
+    currentStreak = 0,
+    completedToday = false,
+    lastCompletedDate = "",
+  } = streak || {};
   const todayIndex = (new Date().getDay() + 6) % 7;
+  const anchorIndex = completedToday
+    ? todayIndex
+    : getWeekdayIndexFromDateKey(lastCompletedDate);
   const activeCount = Math.min(7, Number(currentStreak) || 0);
+
+  if (anchorIndex === null || activeCount <= 0) {
+    return new Set();
+  }
 
   return new Set(
     Array.from({ length: activeCount }).map((_, offset) =>
-      (todayIndex - offset + 7) % 7
+      (anchorIndex - offset + 7) % 7
     )
   );
 };
@@ -52,7 +78,7 @@ export default function GamificationSummary() {
   }, []);
 
   const unlockedPreview = (achievements?.achievements || []).slice(0, 8);
-  const activeStreakIndexes = getActiveStreakIndexes(streak?.currentStreak);
+  const activeStreakIndexes = getActiveStreakIndexes(streak);
 
   return (
     <section className="mb-5 grid gap-4 lg:grid-cols-2">

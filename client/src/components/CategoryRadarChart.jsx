@@ -22,6 +22,8 @@ const getThemeColor = (name, fallback) => {
   );
 };
 
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
 export default function CategoryRadarChart({ data }) {
   const radarData = useMemo(() => {
     const mostPlayed = [...data]
@@ -44,7 +46,7 @@ export default function CategoryRadarChart({ data }) {
     datasets: [
       {
         label: "Accuracy",
-        data: radarData.map((item) => item.avgScore),
+        data: radarData.map((item) => clampPercent(item.avgScore)),
         backgroundColor: "rgba(220, 38, 38, 0.18)",
         borderColor: "#dc2626",
         borderWidth: 2,

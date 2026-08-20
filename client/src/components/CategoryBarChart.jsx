@@ -28,6 +28,8 @@ const getShortCategoryLabel = (label) => {
   return firstPart.trim().split(/\s+/)[0] || normalized;
 };
 
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
 export default function CategoryBarChart({ data }) {
   const sortedData = useMemo(
     () => [...data].sort((a, b) => b.avgScore - a.avgScore),
@@ -47,7 +49,7 @@ export default function CategoryBarChart({ data }) {
     datasets: [
       {
         label: "Accuracy",
-        data: sortedData.map((item) => item.avgScore),
+        data: sortedData.map((item) => clampPercent(item.avgScore)),
         backgroundColor: "rgba(220, 38, 38, 0.78)",
         borderColor: "#dc2626",
         borderRadius: 6,
