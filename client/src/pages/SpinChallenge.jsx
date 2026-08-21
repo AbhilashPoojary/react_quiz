@@ -3,14 +3,20 @@ import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
+  Copy,
   HelpCircle,
   Loader2,
   RotateCcw,
+  Share2,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Categories from "../data/Categories";
 import ErrorNotification from "../components/ErrorNotification";
+import ConfirmPopup from "../components/ConfirmPopup";
+import apiClient from "../utils/apiClient";
+import { getChallengeUrl, shareChallenge } from "../utils/shareChallenge";
 
 const difficultyOptions = [
   { label: "Easy", value: "easy" },
@@ -76,6 +82,9 @@ export default function SpinChallenge({
   const [step, setStep] = useState(1);
   const [spinning, setSpinning] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [createdChallenge, setCreatedChallenge] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [stopped, setStopped] = useState({
     category: false,
     difficulty: false,
@@ -125,6 +134,7 @@ export default function SpinChallenge({
 
     clearTimers();
     setError("");
+    setCreatedChallenge(null);
     setStep(2);
     setSpinning(true);
     setPicks({ category: null, difficulty: null, questionCount: null });
@@ -230,6 +240,79 @@ export default function SpinChallenge({
     }
   };
 
+  const createSpinChallenge = async () => {
+    if (!canStart) {
+      setError("Please spin all wheels before creating a challenge.");
+      return;
+    }
+
+    try {
+      setChallengeLoading(true);
+      setError("");
+      const response = await apiClient.post("/api/challenges", {
+        categoryId: picks.category.value,
+        categoryName: picks.category.category,
+        difficulty: picks.difficulty.value,
+        questionType: "multiple",
+        questionCount: picks.questionCount.value,
+        duration: Math.ceil((10 * picks.questionCount.value) / 60) || 1,
+        timedQuiz: true,
+        showAnswerFeedback: true,
+        timerMode: "PER_QUESTION",
+        totalDuration: null,
+        timePerQuestion: 10,
+      });
+
+      setCreatedChallenge(response.data);
+      setError("");
+    } catch (error) {
+      setError(error?.response?.data?.error || "Unable to create challenge.");
+    } finally {
+      setChallengeLoading(false);
+    }
+  };
+
+  const copyText = async (value, label = "Challenge") => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setError(`${label} copied to clipboard.`);
+    } catch (error) {
+      setError("Unable to copy. Please copy it manually.");
+    }
+  };
+
+  const handleShareChallenge = async () => {
+    if (!createdChallenge?.challengeCode) {
+      return;
+    }
+
+    try {
+      const result = await shareChallenge(createdChallenge.challengeCode);
+
+      if (result.status === "copied") {
+        setError("Challenge invitation copied to clipboard.");
+      } else if (result.status === "shared") {
+        setError("Challenge shared.");
+      }
+    } catch (error) {
+      setError("Unable to share challenge. Please copy the link manually.");
+    }
+  };
+
+  const deleteChallenge = async () => {
+    try {
+      setChallengeLoading(true);
+      await apiClient.delete(`/api/challenges/${createdChallenge.challengeCode}`);
+      setCreatedChallenge(null);
+      setShowDeleteConfirm(false);
+      setError("Challenge deleted successfully.");
+    } catch (error) {
+      setError(error?.response?.data?.error || "Unable to delete challenge.");
+    } finally {
+      setChallengeLoading(false);
+    }
+  };
+
   const stepLabel =
     step === 1 ? "Spin the Wheels" : step === 2 ? "Wheels are Spinning..." : "Your Challenge is Ready!";
 
@@ -237,9 +320,18 @@ export default function SpinChallenge({
     <div className="mx-auto w-full max-w-5xl">
       <ErrorNotification
         message={error}
-        type="error"
+        type={error.includes("copied") || error.includes("shared") || error.includes("deleted") ? "success" : "error"}
         duration={5000}
         onHide={() => setError("")}
+      />
+      <ConfirmPopup
+        open={showDeleteConfirm}
+        title="Delete Challenge?"
+        body={`Are you sure you want to delete challenge ${createdChallenge?.challengeCode || ""}? This is only allowed before any results are recorded.`}
+        confirmText={challengeLoading ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={deleteChallenge}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
       <div className="mb-4 flex items-center justify-between gap-3 border-b pb-4">
         <button
@@ -338,7 +430,7 @@ export default function SpinChallenge({
             <>
               <button
                 className="inline-flex items-center justify-center gap-2 rounded bg-red-600 px-8 py-3 font-semibold text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-70"
-                disabled={!canStart}
+                disabled={!canStart || challengeLoading}
                 type="button"
                 onClick={startQuiz}
               >
@@ -347,8 +439,23 @@ export default function SpinChallenge({
                 {!starting && <ArrowRight size={18} />}
               </button>
               <button
+                className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-8 py-3 font-semibold text-red-600 disabled:cursor-wait disabled:opacity-60"
+                disabled={!canStart || starting || challengeLoading}
+                type="button"
+                onClick={createSpinChallenge}
+              >
+                {challengeLoading && !createdChallenge ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <Share2 size={18} />
+                )}
+                {challengeLoading && !createdChallenge
+                  ? "Creating..."
+                  : "Create Challenge"}
+              </button>
+              <button
                 className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-8 py-3 font-semibold text-red-600"
-                disabled={starting}
+                disabled={starting || challengeLoading}
                 type="button"
                 onClick={spinAll}
               >
@@ -368,6 +475,69 @@ export default function SpinChallenge({
             </button>
           )}
         </div>
+
+        {createdChallenge && (
+          <div className="mx-auto mt-6 max-w-3xl rounded border p-4 text-left">
+            <h3 className="app-strong-text text-lg font-bold">Spin Challenge Created!</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded border p-3">
+                <p className="app-muted-text text-xs font-bold uppercase">Code</p>
+                <p className="app-strong-text mt-1 text-xl font-bold tracking-widest">
+                  {createdChallenge.challengeCode}
+                </p>
+              </div>
+              <div className="rounded border p-3">
+                <p className="app-muted-text text-xs font-bold uppercase">Questions</p>
+                <p className="app-strong-text mt-1 font-semibold">
+                  {createdChallenge.config?.questionCount || picks.questionCount?.value}
+                </p>
+              </div>
+              <div className="rounded border p-3">
+                <p className="app-muted-text text-xs font-bold uppercase">Timer</p>
+                <p className="app-strong-text mt-1 font-semibold">10 sec/question</p>
+              </div>
+            </div>
+            <p className="app-muted-text mt-3 break-all text-sm">
+              {getChallengeUrl(createdChallenge.challengeCode)}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <button
+                className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600"
+                type="button"
+                onClick={() => copyText(createdChallenge.challengeCode, "Code")}
+              >
+                <Copy size={16} />
+                Copy Code
+              </button>
+              <button
+                className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600"
+                type="button"
+                onClick={handleShareChallenge}
+              >
+                <Share2 size={16} />
+                Share
+              </button>
+              <button
+                className="rounded bg-red-600 px-3 py-2 text-white transition hover:bg-red-800"
+                type="button"
+                onClick={() =>
+                  navigate(`/challenge/${createdChallenge.challengeCode}/play`)
+                }
+              >
+                Play
+              </button>
+              <button
+                className="analysis-outline-button inline-flex items-center justify-center gap-2 rounded border border-red-600 px-3 py-2 text-red-600 disabled:cursor-wait disabled:opacity-60"
+                disabled={challengeLoading}
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

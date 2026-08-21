@@ -219,7 +219,7 @@ export default function ChallengePlay({ setAlign }) {
   if (error) {
     return <div className="py-10 text-center text-red-600">{error}</div>;
   }
-
+  console.log(currentQuestion.correctAnswer);
   return (
     <div className="mt-6">
       <div className="flex flex-col gap-2 border-b py-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
