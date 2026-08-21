@@ -10,32 +10,53 @@ const ChallengeAttemptSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["IN_PROGRESS", "COMPLETED"],
+      default: "COMPLETED",
+    },
+    currentQuestionIndex: {
+      type: Number,
+      default: 0,
+    },
+    startedAt: {
+      type: Date,
+      default: Date.now,
+    },
     score: {
       type: Number,
-      required: true,
+      default: 0,
     },
     maxScore: {
       type: Number,
-      required: true,
+      default: 0,
     },
     correctAnswers: {
       type: Number,
-      required: true,
+      default: 0,
     },
     wrongAnswers: {
       type: Number,
-      required: true,
+      default: 0,
     },
     accuracy: {
       type: Number,
-      required: true,
+      default: 0,
     },
     timeTaken: {
       type: Number,
-      required: true,
+      default: 0,
+    },
+    remainingSeconds: {
+      type: Number,
+      default: null,
     },
     answers: [
       {
+        questionOrder: {
+          type: Number,
+          required: true,
+        },
         question: {
           type: String,
           required: true,
@@ -72,13 +93,14 @@ const ChallengeAttemptSchema = new mongoose.Schema(
     ],
     completedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
   },
   { timestamps: true }
 );
 
 ChallengeAttemptSchema.index({ challengeId: 1, userId: 1 }, { unique: true });
+ChallengeAttemptSchema.index({ challengeId: 1, status: 1 });
 
 const ChallengeAttempt = mongoose.model(
   "challengeAttempt",

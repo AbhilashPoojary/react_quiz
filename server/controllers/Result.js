@@ -462,19 +462,27 @@ const searchResult = async (req, res) => {
 
 const profile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select(
-      "name email profilePicture"
-    );
+    const userId = req.user.userId;
+    const [user, rawResults, challenges] = await Promise.all([
+      User.findById(userId).select("name email profilePicture").lean(),
+      Result.find({ userId })
+        .select(
+          "category difficulty score maxScore correctAnswers wrongAnswers accuracy questionCount timeTaken totaltime averageTimePerQuestion scorePercentage createdAt"
+        )
+        .sort({ createdAt: -1 })
+        .lean(),
+      Challenge.find({ participants: userId })
+        .select("challengeCode createdBy participants config status expiresAt createdAt")
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .lean(),
+    ]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const results = (
-      await Result.find({ userId: req.user.userId }).sort({
-      createdAt: -1,
-      })
-    ).map(normalizeResult);
+    const results = rawResults.map(normalizeResult);
 
     const gamesPlayed = results.length;
     const highestScore = gamesPlayed
@@ -534,17 +542,15 @@ const profile = async (req, res) => {
       totalTime: item.totaltime,
       createdAt: item.createdAt,
     }));
-    const userId = req.user.userId;
-    const challenges = await Challenge.find({
-      participants: userId,
-    })
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .lean();
     const challengeIds = challenges.map((item) => item._id.toString());
-    const challengeAttempts = await ChallengeAttempt.find({
-      challengeId: { $in: challengeIds },
-    }).lean();
+    const challengeAttempts = challengeIds.length
+      ? await ChallengeAttempt.find({
+          challengeId: { $in: challengeIds },
+          status: { $ne: "IN_PROGRESS" },
+        })
+          .select("challengeId userId score maxScore")
+          .lean()
+      : [];
     const attemptMap = challengeAttempts.reduce((acc, attempt) => {
       if (!acc[attempt.challengeId]) {
         acc[attempt.challengeId] = [];

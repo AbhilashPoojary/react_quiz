@@ -106,6 +106,8 @@ const ChallengeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ChallengeSchema.index({ participants: 1, createdAt: -1 });
+
 const Challenge = mongoose.model("challenge", ChallengeSchema);
 
 module.exports = Challenge;

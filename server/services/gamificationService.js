@@ -229,7 +229,7 @@ const countQuizTypeAttempts = async (userId, quizType) => {
   }
 
   if (quizType === "CHALLENGE") {
-    return ChallengeAttempt.countDocuments({ userId });
+    return ChallengeAttempt.countDocuments({ userId, status: { $ne: "IN_PROGRESS" } });
   }
 
   if (quizType === "NORMAL") {
@@ -243,7 +243,10 @@ const countQuizTypeAttempts = async (userId, quizType) => {
 };
 
 const countChallengeWins = async (userId) => {
-  const userAttempts = await ChallengeAttempt.find({ userId })
+  const userAttempts = await ChallengeAttempt.find({
+    userId,
+    status: { $ne: "IN_PROGRESS" },
+  })
     .select("challengeId")
     .lean();
   const challengeIds = Array.from(
@@ -256,6 +259,7 @@ const countChallengeWins = async (userId) => {
 
   const attempts = await ChallengeAttempt.find({
     challengeId: { $in: challengeIds },
+    status: { $ne: "IN_PROGRESS" },
   })
     .select("challengeId userId score accuracy timeTaken completedAt")
     .lean();

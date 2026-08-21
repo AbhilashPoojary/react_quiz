@@ -123,6 +123,8 @@ Resultschema.index(
     },
   }
 );
+Resultschema.index({ userId: 1, createdAt: -1 });
+Resultschema.index({ userId: 1, category: 1 });
 
 const Result = mongoose.model("score", Resultschema);
 

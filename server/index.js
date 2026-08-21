@@ -22,11 +22,30 @@ app.use(express.json());
 app.use(helmet());
 app.use(morgan("common"));
 
-connectDB();
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: "50mb" }));
 app.use(requestLogger);
+
+const requireDatabase = (req, res, next) => {
+  if (mongoose.connection.readyState === 1) {
+    return next();
+  }
+
+  return res.status(503).json({
+    error: "Database temporarily unavailable. Please try again shortly.",
+  });
+};
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "running",
+    port: PORT || 8800,
+    database:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
+});
+
+app.use(["/auth", "/api"], requireDatabase);
 
 app.use("/auth", AuthRouter);
 app.use("/api/auth", AuthRouter);
@@ -35,10 +54,15 @@ app.use("/api/admin", AdminRouter);
 app.use("/api/challenges", ChallengeRouter);
 app.use("/api/", ResultRouter);
 
-app.get("/", (req, res) => {
-  res.status(200).json(`running on port ${PORT}`);
-});
+const startServer = async () => {
+  const isDbConnected = await connectDB();
+  if (!isDbConnected) {
+    connectDB.startMongoReconnectLoop();
+  }
 
-const server = app.listen(PORT || 8800, () =>
-  console.log(`Server started on ${PORT || 8800}`)
-);
+  app.listen(PORT || 8800, () =>
+    console.log(`Server started on ${PORT || 8800}`)
+  );
+};
+
+startServer();

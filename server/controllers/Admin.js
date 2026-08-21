@@ -301,7 +301,7 @@ const dashboard = async (req, res) => {
         "name userId category difficulty score maxScore correctAnswers wrongAnswers questionCount accuracy timeTaken totaltime createdAt"
       ),
       Challenge.find().select("challengeCode status expiresAt config createdAt"),
-      ChallengeAttempt.find().select(
+      ChallengeAttempt.find({ status: { $ne: "IN_PROGRESS" } }).select(
         "userId challengeId correctAnswers wrongAnswers createdAt completedAt"
       ),
       User.countDocuments({ isDeleted: { $ne: true } }),
@@ -828,7 +828,7 @@ const getAdminUser = async (req, res) => {
     const [results, eventsJoined, challengesPlayed] = await Promise.all([
       Result.find({ userId }).select("score accuracy").lean(),
       EventRegistration.countDocuments({ userId }),
-      ChallengeAttempt.countDocuments({ userId }),
+      ChallengeAttempt.countDocuments({ userId, status: { $ne: "IN_PROGRESS" } }),
     ]);
     const gamesPlayed = results.length;
     const highestScore = gamesPlayed

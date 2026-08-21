@@ -8,7 +8,6 @@ export default function QuizOptions({
   disabled = false,
   danger = false,
 }) {
-  console.log(quizData.correct_answer);
   return (
     <div
       className={`quiz-options-panel mb-5 rounded border p-5 ${

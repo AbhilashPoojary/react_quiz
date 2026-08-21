@@ -7,6 +7,7 @@ const { updateGlobalPerformance } = require("../services/globalLeaderboardServic
 const { handleQuizGamification } = require("../services/gamificationService");
 
 const POINTS_PER_QUESTION = 10;
+const TIMER_POLICY_VERSION = 2;
 const DEFAULT_EXPIRY_HOURS = 48;
 
 const buildClientUrl = (path) => {
@@ -127,6 +128,7 @@ const sanitizeChallenge = async (challenge, currentUserId) => {
     .lean();
   const attempts = await ChallengeAttempt.find({
     challengeId: challenge._id.toString(),
+    ...getCompletedAttemptQuery(),
   }).lean();
   const participantIds = getActiveParticipantIds(challenge);
   const participantUsers = await User.find({ _id: { $in: participantIds } })
@@ -185,6 +187,7 @@ const assertPlayable = async (challenge, userId) => {
   const existingAttempt = await ChallengeAttempt.exists({
     challengeId: challenge._id.toString(),
     userId,
+    ...getCompletedAttemptQuery(),
   });
 
   if (existingAttempt) {
@@ -192,6 +195,224 @@ const assertPlayable = async (challenge, userId) => {
   }
 
   return "";
+};
+
+const isCompletedAttempt = (attempt) =>
+  Boolean(attempt) && attempt.status !== "IN_PROGRESS";
+
+const getCompletedAttemptQuery = () => ({ status: { $ne: "IN_PROGRESS" } });
+
+const getChallengeDurationSeconds = (config = {}) => {
+  if (config.timedQuiz === false) {
+    return 0;
+  }
+
+  if (config.timerMode === "PER_QUESTION") {
+    return Math.max(
+      0,
+      Number(config.questionCount || 0) * Number(config.timePerQuestion || 0)
+    );
+  }
+
+  return Math.max(0, Number(config.totalDuration || config.duration * 60 || 0));
+};
+
+const getRemainingSeconds = (challenge, attempt) => {
+  const durationSeconds = getChallengeDurationSeconds(challenge?.config || {});
+
+  if (!durationSeconds) {
+    return 0;
+  }
+
+  const hasSavedRemainingSeconds =
+    attempt?.remainingSeconds !== null && attempt?.remainingSeconds !== undefined;
+  const savedRemainingSeconds = Number(attempt?.remainingSeconds);
+
+  if (hasSavedRemainingSeconds && Number.isFinite(savedRemainingSeconds)) {
+    return Math.min(durationSeconds, Math.max(0, savedRemainingSeconds));
+  }
+
+  return durationSeconds;
+};
+
+const normalizeRemainingSeconds = (challenge, value) => {
+  const durationSeconds = getChallengeDurationSeconds(challenge?.config || {});
+  const remainingSeconds = Number(value);
+
+  if (!durationSeconds || !Number.isFinite(remainingSeconds)) {
+    return null;
+  }
+
+  return Math.min(durationSeconds, Math.max(0, Math.floor(remainingSeconds)));
+};
+
+const persistAttemptRemainingSeconds = async (
+  challenge,
+  attemptId,
+  userId,
+  remainingSeconds
+) => {
+  const durationSeconds = getChallengeDurationSeconds(challenge?.config || {});
+
+  return ChallengeAttempt.findOneAndUpdate(
+    {
+      _id: attemptId,
+      challengeId: challenge._id.toString(),
+      userId,
+      status: "IN_PROGRESS",
+    },
+    {
+      $min: { remainingSeconds },
+      $max: { timeTaken: Math.max(0, durationSeconds - remainingSeconds) },
+    },
+    { new: true, runValidators: true }
+  );
+};
+
+const ensureAttemptRemainingSeconds = async (challenge, attempt) => {
+  if (
+    !attempt ||
+    isCompletedAttempt(attempt) ||
+    attempt.remainingSeconds !== null &&
+    attempt.remainingSeconds !== undefined
+  ) {
+    return attempt;
+  }
+
+  attempt.remainingSeconds = getChallengeDurationSeconds(challenge?.config || {});
+  attempt.timeTaken = 0;
+  await attempt.save();
+  return attempt;
+};
+
+const sanitizeAttemptQuestion = (item) => ({
+  questionId: String(item.questionOrder),
+  questionOrder: item.questionOrder,
+  question: item.question,
+  answers: item.options,
+  category: item.category,
+  difficulty: item.difficulty,
+});
+
+const buildChallengeAnswer = (question, selectedAnswer = "") => {
+  const normalizedAnswer = String(selectedAnswer || "");
+  const isCorrect = normalizedAnswer === question.correctAnswer;
+
+  return {
+    questionOrder: question.questionOrder,
+    question: question.question,
+    options: question.options,
+    selectedAnswer: normalizedAnswer,
+    correctAnswer: question.correctAnswer,
+    isCorrect,
+    category: question.category,
+    difficulty: question.difficulty,
+    pointsEarned: isCorrect ? POINTS_PER_QUESTION : 0,
+  };
+};
+
+const getAttemptPayload = (challenge, attempt) => {
+  if (!attempt) {
+    return {
+      status: "NOT_STARTED",
+      challengeCode: challenge.challengeCode,
+      config: challenge.config,
+      totalQuestions: challenge.questions.length,
+      currentQuestionIndex: 0,
+      answeredQuestions: 0,
+      remainingSeconds: 0,
+      questions: [],
+    };
+  }
+
+  const currentQuestionIndex = Math.min(
+    Number(attempt.currentQuestionIndex || 0),
+    challenge.questions.length
+  );
+
+  return {
+    attemptId: attempt._id.toString(),
+    status: isCompletedAttempt(attempt) ? "COMPLETED" : "IN_PROGRESS",
+    timerPolicyVersion: TIMER_POLICY_VERSION,
+    challengeCode: challenge.challengeCode,
+    config: challenge.config,
+    totalQuestions: challenge.questions.length,
+    currentQuestionIndex,
+    answeredQuestions: currentQuestionIndex,
+    startedAt: attempt.startedAt,
+    completedAt: attempt.completedAt,
+    remainingSeconds: getRemainingSeconds(challenge, attempt),
+    questions: isCompletedAttempt(attempt)
+      ? []
+      : challenge.questions
+          .sort((a, b) => a.questionOrder - b.questionOrder)
+          .slice(currentQuestionIndex)
+          .map(sanitizeAttemptQuestion),
+  };
+};
+
+const finalizeChallengeAttempt = async (challenge, attempt, timeTaken) => {
+  const sortedQuestions = challenge.questions.sort(
+    (a, b) => a.questionOrder - b.questionOrder
+  );
+  const answeredOrders = new Set((attempt.answers || []).map((item) => item.questionOrder));
+  const unansweredAnswers = sortedQuestions
+    .filter((question) => !answeredOrders.has(question.questionOrder))
+    .map((question) => buildChallengeAnswer(question, ""));
+  const finalAnswers = [...(attempt.answers || []), ...unansweredAnswers].sort(
+    (a, b) => a.questionOrder - b.questionOrder
+  );
+  const correctAnswers = finalAnswers.filter((item) => item.isCorrect).length;
+  const questionCount = sortedQuestions.length;
+  const maxScore = questionCount * POINTS_PER_QUESTION;
+  const score = correctAnswers * POINTS_PER_QUESTION;
+  const wrongAnswers = questionCount - correctAnswers;
+  const accuracy = questionCount ? (correctAnswers / questionCount) * 100 : 0;
+
+  attempt.status = "COMPLETED";
+  attempt.currentQuestionIndex = questionCount;
+  attempt.score = score;
+  attempt.maxScore = maxScore;
+  attempt.correctAnswers = correctAnswers;
+  attempt.wrongAnswers = wrongAnswers;
+  attempt.accuracy = accuracy;
+  attempt.timeTaken = Math.max(0, Number(timeTaken || 0));
+  attempt.remainingSeconds = 0;
+  attempt.answers = finalAnswers;
+  attempt.completedAt = new Date();
+  await attempt.save();
+
+  await updateGlobalPerformance({
+    userId: attempt.userId,
+    attemptId: attempt._id.toString(),
+    attemptType: "CHALLENGE",
+    correctAnswers,
+    questionCount,
+    difficulty: challenge.config?.difficulty,
+    completedAt: attempt.completedAt,
+  });
+
+  const gamification = await handleQuizGamification({
+    userId: attempt.userId,
+    activityId: attempt._id.toString(),
+    activityType: "CHALLENGE",
+    completedAt: attempt.completedAt,
+    streakEligible: false,
+  });
+
+  const activeParticipantIds = getActiveParticipantIds(challenge);
+  const attemptCount = await ChallengeAttempt.countDocuments({
+    challengeId: challenge._id.toString(),
+    userId: { $in: activeParticipantIds },
+    ...getCompletedAttemptQuery(),
+  });
+
+  if (activeParticipantIds.length >= 2 && attemptCount >= 2) {
+    challenge.status = "COMPLETED";
+    await challenge.save();
+  }
+
+  return { attempt, gamification };
 };
 
 const createChallenge = async (req, res) => {
@@ -416,6 +637,107 @@ const deleteChallenge = async (req, res) => {
   }
 };
 
+const getChallengeAttempt = async (req, res) => {
+  try {
+    const challenge = await Challenge.findOne({
+      challengeCode: String(req.params.code || "").toUpperCase(),
+    });
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    if (!getActiveParticipantIds(challenge).includes(String(req.user.userId || ""))) {
+      return res.status(403).json({ error: "You are not part of this challenge" });
+    }
+
+    const attempt = await ensureAttemptRemainingSeconds(
+      challenge,
+      await ChallengeAttempt.findOne({
+      challengeId: challenge._id.toString(),
+      userId: req.user.userId,
+      })
+    );
+
+    res.status(200).json(getAttemptPayload(challenge, attempt));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const startChallengeAttempt = async (req, res) => {
+  try {
+    const challenge = await Challenge.findOne({
+      challengeCode: String(req.params.code || "").toUpperCase(),
+    });
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    if (!getActiveParticipantIds(challenge).includes(String(req.user.userId || ""))) {
+      return res.status(400).json({ error: "Please accept the challenge before playing" });
+    }
+
+    let attempt = await ensureAttemptRemainingSeconds(
+      challenge,
+      await ChallengeAttempt.findOne({
+        challengeId: challenge._id.toString(),
+        userId: req.user.userId,
+      })
+    );
+
+    if (isCompletedAttempt(attempt)) {
+      return res.status(200).json(getAttemptPayload(challenge, attempt));
+    }
+
+    const effectiveStatus = getEffectiveStatus(challenge);
+
+    if (effectiveStatus === "EXPIRED") {
+      return res.status(400).json({ error: "This challenge has expired" });
+    }
+
+    if (effectiveStatus === "CANCELLED" || effectiveStatus === "COMPLETED") {
+      return res.status(400).json({ error: "This challenge is closed" });
+    }
+
+    if (!attempt) {
+      attempt = await new ChallengeAttempt({
+        challengeId: challenge._id.toString(),
+        userId: req.user.userId,
+        status: "IN_PROGRESS",
+        currentQuestionIndex: 0,
+        startedAt: new Date(),
+        remainingSeconds: getChallengeDurationSeconds(challenge.config || {}),
+        maxScore: challenge.questions.length * POINTS_PER_QUESTION,
+      }).save();
+    }
+
+    res.status(201).json(getAttemptPayload(challenge, attempt));
+  } catch (error) {
+    if (error.code === 11000) {
+      const challenge = await Challenge.findOne({
+        challengeCode: String(req.params.code || "").toUpperCase(),
+      });
+      const attempt = challenge
+        ? await ensureAttemptRemainingSeconds(
+            challenge,
+            await ChallengeAttempt.findOne({
+              challengeId: challenge._id.toString(),
+              userId: req.user.userId,
+            })
+          )
+        : null;
+
+      if (challenge && attempt) {
+        return res.status(200).json(getAttemptPayload(challenge, attempt));
+      }
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const getChallengeQuestions = async (req, res) => {
   try {
     const challenge = await Challenge.findOne({
@@ -437,14 +759,192 @@ const getChallengeQuestions = async (req, res) => {
           questionOrder: item.questionOrder,
           question: item.question,
           answers: item.options,
-          correctAnswer:
-            challenge.config?.showAnswerFeedback === false
-              ? undefined
-              : item.correctAnswer,
           category: item.category,
           difficulty: item.difficulty,
         })),
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const saveChallengeAnswer = async (req, res) => {
+  try {
+    const challenge = await Challenge.findOne({
+      challengeCode: String(req.params.code || "").toUpperCase(),
+    });
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    const effectiveStatus = getEffectiveStatus(challenge);
+
+    if (effectiveStatus === "EXPIRED") {
+      return res.status(400).json({ error: "This challenge has expired" });
+    }
+
+    if (effectiveStatus === "CANCELLED" || effectiveStatus === "COMPLETED") {
+      return res.status(400).json({ error: "This challenge is closed" });
+    }
+
+    if (!getActiveParticipantIds(challenge).includes(String(req.user.userId || ""))) {
+      return res.status(400).json({ error: "Please accept the challenge before playing" });
+    }
+
+    const attempt = await ChallengeAttempt.findOne({
+      _id: req.params.attemptId,
+      challengeId: challenge._id.toString(),
+      userId: req.user.userId,
+    });
+
+    if (!attempt) {
+      return res.status(404).json({ error: "Challenge attempt not found" });
+    }
+
+    if (isCompletedAttempt(attempt)) {
+      return res.status(400).json({ error: "You have already completed this challenge" });
+    }
+
+    const questionIndex = Number(req.body.questionIndex);
+    const currentQuestionIndex = Number(attempt.currentQuestionIndex || 0);
+
+    if (!Number.isInteger(questionIndex) || questionIndex < 0) {
+      return res.status(400).json({ error: "Invalid question index" });
+    }
+
+    if (questionIndex < currentQuestionIndex) {
+      return res.status(409).json({ error: "This answer is already locked" });
+    }
+
+    if (questionIndex > currentQuestionIndex) {
+      return res.status(409).json({ error: "Please answer the current question first" });
+    }
+
+    const sortedQuestions = challenge.questions.sort(
+      (a, b) => a.questionOrder - b.questionOrder
+    );
+    const question = sortedQuestions[questionIndex];
+
+    if (!question) {
+      return res.status(400).json({ error: "Question not found" });
+    }
+
+    const requestedQuestionId = String(req.body.questionId || question.questionOrder);
+
+    if (requestedQuestionId !== String(question.questionOrder)) {
+      return res.status(400).json({ error: "Question mismatch" });
+    }
+
+    const savedAnswer = buildChallengeAnswer(question, req.body.selectedAnswer);
+    attempt.answers = [...(attempt.answers || []), savedAnswer];
+    attempt.currentQuestionIndex = Math.min(questionIndex + 1, sortedQuestions.length);
+    const remainingSeconds = normalizeRemainingSeconds(
+      challenge,
+      req.body.remainingSeconds
+    );
+
+    const currentRemainingSeconds = getRemainingSeconds(challenge, attempt);
+    const effectiveRemainingSeconds =
+      remainingSeconds === null
+        ? currentRemainingSeconds
+        : Math.min(currentRemainingSeconds, remainingSeconds);
+
+    const timeTaken = Math.max(
+      0,
+      getChallengeDurationSeconds(challenge.config || {}) - effectiveRemainingSeconds
+    );
+
+    if (attempt.currentQuestionIndex >= sortedQuestions.length) {
+      const { attempt: completedAttempt, gamification } = await finalizeChallengeAttempt(
+        challenge,
+        attempt,
+        timeTaken
+      );
+
+      return res.status(200).json({
+        ...getAttemptPayload(challenge, completedAttempt),
+        feedback: {
+          questionOrder: savedAnswer.questionOrder,
+          selectedAnswer: savedAnswer.selectedAnswer,
+          correctAnswer: savedAnswer.correctAnswer,
+          isCorrect: savedAnswer.isCorrect,
+        },
+        streak: gamification.streak,
+        newAchievements: gamification.newAchievements,
+        redirectTo: `/challenge/${challenge.challengeCode}/results`,
+      });
+    }
+
+    await attempt.save();
+    const updatedAttempt =
+      remainingSeconds === null
+        ? attempt
+        : (await persistAttemptRemainingSeconds(
+            challenge,
+            attempt._id,
+            req.user.userId,
+            remainingSeconds
+          )) || attempt;
+
+    res.status(200).json({
+      ...getAttemptPayload(challenge, updatedAttempt),
+      feedback: {
+        questionOrder: savedAnswer.questionOrder,
+        selectedAnswer: savedAnswer.selectedAnswer,
+        correctAnswer: savedAnswer.correctAnswer,
+        isCorrect: savedAnswer.isCorrect,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateChallengeAttemptTime = async (req, res) => {
+  try {
+    const challenge = await Challenge.findOne({
+      challengeCode: String(req.params.code || "").toUpperCase(),
+    });
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    const attempt = await ensureAttemptRemainingSeconds(
+      challenge,
+      await ChallengeAttempt.findOne({
+        _id: req.params.attemptId,
+        challengeId: challenge._id.toString(),
+        userId: req.user.userId,
+      })
+    );
+
+    if (!attempt) {
+      return res.status(404).json({ error: "Challenge attempt not found" });
+    }
+
+    if (isCompletedAttempt(attempt)) {
+      return res.status(200).json(getAttemptPayload(challenge, attempt));
+    }
+
+    const remainingSeconds = normalizeRemainingSeconds(
+      challenge,
+      req.body.remainingSeconds
+    );
+
+    if (remainingSeconds === null) {
+      return res.status(400).json({ error: "Invalid remaining time" });
+    }
+
+    const updatedAttempt = await persistAttemptRemainingSeconds(
+      challenge,
+      attempt._id,
+      req.user.userId,
+      remainingSeconds
+    );
+
+    res.status(200).json(getAttemptPayload(challenge, updatedAttempt || attempt));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -456,17 +956,78 @@ const submitChallenge = async (req, res) => {
       challengeCode: String(req.params.code || "").toUpperCase(),
     });
 
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    const existingAttempt = await ChallengeAttempt.findOne({
+      challengeId: challenge._id.toString(),
+      userId: req.user.userId,
+    });
+    const submittedAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
+    const submittedMap = submittedAnswers.reduce((acc, item) => {
+      acc[item.questionOrder] = item.selectedAnswer || "";
+      return acc;
+    }, {});
+
+    if (existingAttempt && !isCompletedAttempt(existingAttempt)) {
+      if (!getActiveParticipantIds(challenge).includes(String(req.user.userId || ""))) {
+        return res.status(400).json({ error: "Please accept the challenge before playing" });
+      }
+
+      if (["CANCELLED", "COMPLETED"].includes(getEffectiveStatus(challenge))) {
+        return res.status(400).json({ error: "This challenge is closed" });
+      }
+
+      const savedOrders = new Set(
+        (existingAttempt.answers || []).map((item) => item.questionOrder)
+      );
+      const supplementalAnswers = challenge.questions
+        .sort((a, b) => a.questionOrder - b.questionOrder)
+        .filter(
+          (question) =>
+            !savedOrders.has(question.questionOrder) &&
+            Object.prototype.hasOwnProperty.call(submittedMap, question.questionOrder)
+        )
+        .map((question) => buildChallengeAnswer(question, submittedMap[question.questionOrder]));
+
+      existingAttempt.answers = [...(existingAttempt.answers || []), ...supplementalAnswers];
+      existingAttempt.currentQuestionIndex = Math.max(
+        existingAttempt.currentQuestionIndex || 0,
+        existingAttempt.answers.length
+      );
+
+      const { attempt, gamification } = await finalizeChallengeAttempt(
+        challenge,
+        existingAttempt,
+        Math.max(0, Number(req.body.timeTaken || 0))
+      );
+
+      return res.status(201).json({
+        attempt: {
+          _id: attempt._id,
+          challengeId: attempt.challengeId,
+          userId: attempt.userId,
+          score: attempt.score,
+          maxScore: attempt.maxScore,
+          correctAnswers: attempt.correctAnswers,
+          wrongAnswers: attempt.wrongAnswers,
+          accuracy: attempt.accuracy,
+          timeTaken: attempt.timeTaken,
+          completedAt: attempt.completedAt,
+        },
+        streak: gamification.streak,
+        newAchievements: gamification.newAchievements,
+        redirectTo: `/challenge/${challenge.challengeCode}/results`,
+      });
+    }
+
     const error = await assertPlayable(challenge, req.user.userId);
 
     if (error) {
       return res.status(error === "Challenge not found" ? 404 : 400).json({ error });
     }
 
-    const submittedAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
-    const submittedMap = submittedAnswers.reduce((acc, item) => {
-      acc[item.questionOrder] = item.selectedAnswer || "";
-      return acc;
-    }, {});
     const answers = challenge.questions
       .sort((a, b) => a.questionOrder - b.questionOrder)
       .map((question) => {
@@ -474,6 +1035,7 @@ const submitChallenge = async (req, res) => {
         const isCorrect = selectedAnswer === question.correctAnswer;
 
         return {
+          questionOrder: question.questionOrder,
           question: question.question,
           options: question.options,
           selectedAnswer,
@@ -493,6 +1055,10 @@ const submitChallenge = async (req, res) => {
     const attempt = await new ChallengeAttempt({
       challengeId: challenge._id.toString(),
       userId: req.user.userId,
+      status: "COMPLETED",
+      currentQuestionIndex: questionCount,
+      startedAt: new Date(Date.now() - Math.max(0, Number(req.body.timeTaken || 0)) * 1000),
+      remainingSeconds: 0,
       score,
       maxScore,
       correctAnswers,
@@ -525,6 +1091,7 @@ const submitChallenge = async (req, res) => {
     const attemptCount = await ChallengeAttempt.countDocuments({
       challengeId: challenge._id.toString(),
       userId: { $in: activeParticipantIds },
+      ...getCompletedAttemptQuery(),
     });
 
     if (activeParticipantIds.length >= 2 && attemptCount >= 2) {
@@ -606,6 +1173,7 @@ const getChallengeResults = async (req, res) => {
     const attempts = await ChallengeAttempt.find({
       challengeId: challenge._id.toString(),
       userId: { $in: activeParticipantIds },
+      ...getCompletedAttemptQuery(),
     })
       .sort({ completedAt: 1 })
       .lean();
@@ -664,7 +1232,11 @@ module.exports = {
   getChallenge,
   acceptChallenge,
   deleteChallenge,
+  getChallengeAttempt,
   getChallengeQuestions,
+  saveChallengeAnswer,
+  startChallengeAttempt,
   submitChallenge,
+  updateChallengeAttemptTime,
   getChallengeResults,
 };

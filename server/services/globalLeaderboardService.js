@@ -104,7 +104,7 @@ const syncExistingQuizAttempts = async () => {
 };
 
 const syncExistingChallengeAttempts = async () => {
-  const attempts = await ChallengeAttempt.find()
+  const attempts = await ChallengeAttempt.find({ status: { $ne: "IN_PROGRESS" } })
     .select("challengeId userId correctAnswers answers completedAt createdAt")
     .lean();
   const challengeIds = Array.from(new Set(attempts.map((item) => item.challengeId)));
