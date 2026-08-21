@@ -737,6 +737,9 @@ function App() {
           </Route>
         </Routes>
       </main>
+      <footer className="app-muted-text mt-4 text-center text-sm">
+        Made with ❤️ by Abhilash Poojary
+      </footer>
     </section>
   );
 }
